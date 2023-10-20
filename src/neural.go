@@ -433,9 +433,9 @@ func printNeural(nnet *NeuralNetwork) {
 func calculateInput(indiv *Mite, id int) float64{
 	switch InputNeuron(id) {
 	case Px:
-		return float64(indiv.X) / float64(128)
+		return float64(indiv.X) / float64(ROWS)
 	case Py:
-		return float64(indiv.Y) / float64(128)
+		return float64(indiv.Y) / float64(COLS)
 	case Rnd:
 		return rand.Float64()
 	}
@@ -558,17 +558,15 @@ func calcNeuralPotential(indiv *Mite, nnet *NeuralNetwork) map[OutputNeuron]floa
 
 
 // TODO move to different file as this pretains to game state rather than the actual neural network
-func checkCollisions(x int, y int) bool {
-	if x < 0 || x >= 128 { return true }
-	if y < 0 || y >= 128 { return true }
+// DOES NOT LOCK POSITION
+// func checkCollisions(x int, y int) bool {
+// 	if x < 0 || x >= 128 { return true }
+// 	if y < 0 || y >= 128 { return true }
 
-	// check for other mites in the new square
-	if _, ok := gridOccupy[y*128 + x]; ok{
-		return true
-	}
-
-	return false
-}
+// 	// check for other mites in the new square
+// 	gridMu[x][y].Lock()
+// 	return gridOccupy[x][y];
+// }
 
 /*
 	this function performs an action for an organism in a single step which includes calculating the neural
@@ -594,32 +592,19 @@ func stepOrganism(indiv *Mite) {
 			newX := indiv.X + xOffset
 			newY := indiv.Y + yOffset
 
-			if !checkCollisions(newX, indiv.Y) {
-				delete(gridOccupy, indiv.Y*128 + indiv.X)
-				indiv.X = newX
-				gridOccupy[indiv.Y*128 + indiv.X] = true
-			}
-			if !checkCollisions(indiv.X, newY) {
-				delete(gridOccupy, indiv.Y*128 + indiv.X)
-				indiv.Y = newY
-				gridOccupy[indiv.Y*128 + indiv.X] = true
-			}
+			// x move
+			moveMite( indiv, newX, indiv.Y )
+
+			// y move
+			moveMite( indiv, indiv.X, newY )
 		case Mx:
 			newX := indiv.X +  int(output / math.Abs(output))
 
-			if !checkCollisions(newX, indiv.Y) {
-				delete(gridOccupy, indiv.Y*128 + indiv.X)
-				indiv.X = newX
-				gridOccupy[indiv.Y*128 + indiv.X] = true
-			}
+			moveMite( indiv, newX, indiv.Y )
 		case My:
 			newY := indiv.Y +  int(output / math.Abs(output))
 
-			if !checkCollisions(indiv.X, newY) {
-				delete(gridOccupy, indiv.Y*128 + indiv.X)
-				indiv.Y = newY
-				gridOccupy[indiv.Y*128 + indiv.X] = true
-			}
+			moveMite( indiv, indiv.X, newY )
 		}
 	}
 }

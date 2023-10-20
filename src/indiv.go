@@ -4,6 +4,7 @@ import (
 	"math/rand"
 	"image/color"
 	// "fmt"
+	// "time"
 )
 
 type Mite struct {
@@ -14,19 +15,20 @@ type Mite struct {
 	color color.Color
 }
 
+// NOTE:: iterative
 func createRandomMite(numGenes int, id int) *Mite {
 	genome := createGenome(numGenes, int64(rand.Int()))
 	nnet, _ := processGenome(genome)
 
-	var x, y = 20, 64
+	var x, y = 0, 0
 	for{
-		if _, ok := gridOccupy[y*128 + x]; ok {
-			x = rand.Intn(128)
-			y = rand.Intn(128)
+		if gridOccupy[x][y] {
+			x = rand.Intn(ROWS)
+			y = rand.Intn(COLS)
 		} else{ break }
 	}
 
-	gridOccupy[y*128+x] = true
+	gridOccupy[x][y] = true
 
 	red := uint8(rand.Intn(256))
 	green := uint8(rand.Intn(256))
@@ -43,15 +45,15 @@ func createRandomMite(numGenes int, id int) *Mite {
 	}
 }
 func randomizePos(mite *Mite) {
-	var x, y = rand.Intn(128), rand.Intn(128)
+	var x, y = rand.Intn(ROWS), rand.Intn(COLS)
 	for{
-		if _, ok := gridOccupy[y*128 + x]; ok {
-			x = rand.Intn(128)
-			y = rand.Intn(128)
+		if gridOccupy[x][y] {
+			x = rand.Intn(ROWS)
+			y = rand.Intn(COLS)
 		} else{ break }
 	}
 
-	gridOccupy[y*128+x] = true
+	gridOccupy[x][y] = true
 	mite.X, mite.Y = x, y
 }
 
@@ -77,3 +79,57 @@ func createMite(genome []string) *Mite {
 	return newMite
 }
 
+// constructors ^^^
+
+
+// NOTE:: does not lock new position on occupancy grid.
+// 		  assumed to be done already due to collision checking
+//
+// 		  NEVER EVER call this function unless it is certain the grid location is not occupied
+// func moveMite(indiv *Mite, oldPos [2]int, newPos [2]int){
+
+// 	gridMu[ oldPos[0] ][ oldPos[1] ].Lock()
+// 	gridOccupy[ oldPos[0] ][ oldPos[1] ] = false
+// 	gridMu[ oldPos[0] ][ oldPos[1] ].Unlock()
+// 	// ^ could be bad, relinquishing control of the grid location before the mite has been secured on the new square
+// 	// but again we assume the new pos is already locked and ready to go
+
+// 	indiv.X = newPos[0]
+// 	indiv.Y = newPos[1]
+
+// 	gridOccupy[ newPos[0] ][ newPos[1] ] = true
+// }
+
+// move mite to x and y if possible
+func moveMite(indiv *Mite, x int, y int) {
+	// check collisions
+	if x < 0 || x >= ROWS { return }
+	if y < 0 || y >= COLS { return }
+
+	// check for other mites in the new square
+
+	// startTime := time.Now()
+	gridMu[x][y].Lock()
+	// endTime := time.Now()
+	// duration += endTime.Sub(startTime)
+
+	if gridOccupy[x][y] {
+		gridMu[x][y].Unlock()
+		return
+	}
+
+	// now move
+	// startTime = time.Now()
+	gridMu[indiv.X][indiv.Y].Lock()
+	// endTime = time.Now()
+	// duration += endTime.Sub(startTime)
+
+	gridOccupy[indiv.X][indiv.Y] = false
+	gridMu[indiv.X][indiv.Y].Unlock()
+
+	gridOccupy[x][y] = true
+	indiv.X, indiv.Y = x, y
+
+	gridMu[x][y].Unlock()
+
+}

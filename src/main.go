@@ -4,6 +4,7 @@ import (
     // "fmt"
 	// "os"
 	"log"
+	"sync"
 
 	"github.com/hajimehoshi/ebiten/v2"
 )
@@ -69,12 +70,38 @@ to make new connections and delete unused ones (for allowing the neural network 
 
 */
 
+var ROWS = 128
+var COLS = 128
+
 var organisms []*Mite
-var gridOccupy = map[int]bool{}
+var gridOccupy = [][]bool{} // every grid position
+// TODO ^^ replace with *Mite instead of bool so we can perform more complex calculations about the organisms occupying particular grid locations
+
+// used to sync occupancy grid
+var gridMu = [][]*sync.Mutex{}
+
+func clearGrid(){
+	gridOccupy = [][]bool{}
+	gridMu = [][]*sync.Mutex{}
+}
+
+func createOccupancyGrid(rows int, cols int){
+	clearGrid()
+
+	for i := 0; i < rows; i++ {
+		gridOccupy = append(gridOccupy, make([]bool, cols))
+		gridMu = append(gridMu, make([]*sync.Mutex, cols))
+		for j := 0; j < cols; j++ {
+			// each position is not occupied initially
+			gridOccupy[i][j] = false
+			gridMu[i][j] = &sync.Mutex{}
+		}
+	}
+}
 
 func main() {
 
-
+	createOccupancyGrid(ROWS, COLS)
 
     // fmt.Println("Processing genome test")
     // // genome := []string{"648FD2E9", "8FA0D2E9", "8F8FD2F9", "A00076F9"}
@@ -94,16 +121,9 @@ func main() {
 		organisms = append(organisms, createRandomMite(1000, i))
 	}
 
-	// for _, mite := range organisms{
-	// 	if len(mite.genome) != 4{
-	// 		fmt.Println("OH NO!!!!!!")
-	// 		os.Exit(1)
-	// 	}
-	// }
-
 	ebiten.SetMaxTPS(60)
 
-	ebiten.SetWindowSize(640, 640)
+	ebiten.SetWindowSize(ROWS*5, COLS*5)
 	ebiten.SetWindowTitle("Gen 0")
 	if err := ebiten.RunGame(&Game{}); err != nil {
 		log.Fatal(err)
