@@ -117,8 +117,8 @@ func main() {
 	// _ = calcNeuralPotential(nnet)
 	// fmt.Println("______")
 
-	for i := 0; i < 1000; i++{
-		organisms = append(organisms, createRandomMite(1000, i))
+	for i := 0; i < 20; i++{
+		organisms = append(organisms, createRandomMite(100, i))
 	}
 
 	ebiten.SetMaxTPS(60)

@@ -3,7 +3,8 @@ package main
 import (
 	"math/rand"
 	"image/color"
-	// "fmt"
+	"fmt"
+	// "os"
 	// "time"
 )
 
@@ -12,6 +13,8 @@ type Mite struct {
 	genome []string
 	id int
 	X, Y int
+	birth int
+	nutrition float64
 	color color.Color
 }
 
@@ -30,10 +33,20 @@ func createRandomMite(numGenes int, id int) *Mite {
 
 	gridOccupy[x][y] = true
 
-	red := uint8(rand.Intn(256))
-	green := uint8(rand.Intn(256))
-	blue := uint8(rand.Intn(256))
-	alpha := uint8(rand.Intn(256))
+	// red := uint8(rand.Intn(256))
+	// green := uint8(rand.Intn(256))
+	// blue := uint8(rand.Intn(256))
+	// alpha := uint8(rand.Intn(256))
+
+	red, green, blue := getIndivColor(genome)
+	alpha := 255
+
+	// fmt.Println("\nMite")
+	// for _, gene := range genome {
+	// 	fmt.Printf("%s ", gene)
+	// }
+	// fmt.Println()
+	// os.Exit(1)
 
 	return &Mite{
 		nnet: nnet,
@@ -41,9 +54,12 @@ func createRandomMite(numGenes int, id int) *Mite {
 		id: id,
 		X: x,
 		Y: y,
-		color: color.RGBA{red,green,blue,alpha},
+		birth: 0,
+		nutrition: 0.2,
+		color: color.RGBA{uint8(red),uint8(green),uint8(blue),uint8(alpha)},
 	}
 }
+
 func randomizePos(mite *Mite) {
 	var x, y = rand.Intn(ROWS), rand.Intn(COLS)
 	for{
@@ -61,10 +77,13 @@ func createMite(genome []string) *Mite {
 	nnet, _ := processGenome(genome)
 
 	// TODO move to get random color function
-	red := uint8(rand.Intn(256))
-	green := uint8(rand.Intn(256))
-	blue := uint8(rand.Intn(256))
-	alpha := uint8(rand.Intn(256))
+	// red := uint8(rand.Intn(256))
+	// green := uint8(rand.Intn(256))
+	// blue := uint8(rand.Intn(256))
+	// alpha := uint8(rand.Intn(256))
+
+	red, green, blue := getIndivColor(genome)
+	alpha := 255
 
 	newMite := &Mite{
 		nnet: nnet,
@@ -72,10 +91,80 @@ func createMite(genome []string) *Mite {
 		id: rand.Intn(10000), // TODO fix lol
 		X: 0,
 		Y: 0,
-		color: color.RGBA{red,green,blue,alpha},
+		nutrition: 0.2,
+		birth: CURR_STEP,
+		color: color.RGBA{uint8(red),uint8(green),uint8(blue),uint8(alpha)},
 	}
 
 	randomizePos(newMite)
+	return newMite
+}
+
+func cellDivide(mite *Mite) *Mite {
+
+	// get a position NOTE: will not spawn if all neighbor grids are occupied
+
+	// a set of all neighbors
+	neighbors := [][2]int{
+		{-1, -1},
+		{0, -1},
+		{1, -1},
+		{-1, 0},
+		{1, 0},
+		{-1, 1},
+		{0, 1},
+		{1, 1},
+	}
+	//neighbours = [(-1, -1), (0, -1), (1, -1), (-1, 0), (1, 0), (-1, 1), (0, 1), (1, 1)]
+
+	var newX int
+	var newY int
+
+	for{
+		// randomly choose unchecked neighbor
+		rn := rand.Intn(len(neighbors))
+		var n [2]int = neighbors[ rn ]
+
+		newX = mite.X + n[0]
+		newY = mite.Y + n[1]
+
+
+		if (newX >= 0 && newX < 128) && (newY >= 0 && newY < 128) {
+			gridMu[ newX ][ newY ].Lock()
+			if !gridOccupy[ newX ][ newY ] {
+				break
+			}
+			gridMu[ newX ][ newY ].Unlock()
+		}
+
+		// if occupied then remove the neighbor and try the next
+		neighbors[rn] = neighbors[len(neighbors)-1]
+		neighbors = neighbors[:len(neighbors)-1]
+
+		// out of neighbors. no baby mite, sorry
+		if len(neighbors) == 0 { return nil }
+	}
+
+	gridOccupy[ newX ][ newY ] = true
+
+	genome := mutateGenome(mite.genome)
+	nnet, _ := processGenome(genome)
+
+	red, green, blue := getIndivColor(genome)
+	alpha := 255
+
+	newMite := &Mite{
+		nnet: nnet,
+		genome: genome,
+		id: rand.Intn(10000), // TODO fix lol
+		X: newX,
+		Y: newY,
+		birth: CURR_STEP,
+		nutrition: 0.2,
+		color: color.RGBA{uint8(red),uint8(green),uint8(blue),uint8(alpha)},
+	}
+	gridMu[ newX ][ newY ].Unlock()
+
 	return newMite
 }
 
@@ -102,6 +191,8 @@ func createMite(genome []string) *Mite {
 
 // move mite to x and y if possible
 func moveMite(indiv *Mite, x int, y int) {
+	if x == indiv.X && y == indiv.Y { return }
+
 	// check collisions
 	if x < 0 || x >= ROWS { return }
 	if y < 0 || y >= COLS { return }
@@ -121,6 +212,7 @@ func moveMite(indiv *Mite, x int, y int) {
 	// now move
 	// startTime = time.Now()
 	gridMu[indiv.X][indiv.Y].Lock()
+
 	// endTime = time.Now()
 	// duration += endTime.Sub(startTime)
 
@@ -131,5 +223,4 @@ func moveMite(indiv *Mite, x int, y int) {
 	indiv.X, indiv.Y = x, y
 
 	gridMu[x][y].Unlock()
-
 }

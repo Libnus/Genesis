@@ -101,7 +101,7 @@ const (
     Mfd // move fwd
 	Res // responsiveness of the creature (higher output means weights are heavier (which weights are heavier is determined by the genome) )
 	Eat // eat creature directly in front of creatures chompers (fwd direction of creature)
-	Kill // kill but dont eat
+	Ko // kill but dont eat
 	Dr // drink lean
 )
 
@@ -574,11 +574,13 @@ func calcNeuralPotential(indiv *Mite, nnet *NeuralNetwork) map[OutputNeuron]floa
 
 	NOTE: multiple actions can be performed by an organism in a single step even if the action directly goes
 	against a previous action (i.e. moving right then deciding to move left)
-
+ .
 	however, once a neuron has been fired, it cannot be refired
 */
 func stepOrganism(indiv *Mite) {
 	netOutput := calcNeuralPotential(indiv, indiv.nnet)
+
+	didMove := false
 
 	// perform the actions for each output
 	// for each output neuron determine the neuron type and perform action
@@ -597,14 +599,34 @@ func stepOrganism(indiv *Mite) {
 
 			// y move
 			moveMite( indiv, indiv.X, newY )
+			didMove = true
 		case Mx:
 			newX := indiv.X +  int(output / math.Abs(output))
 
 			moveMite( indiv, newX, indiv.Y )
+			didMove = true
 		case My:
 			newY := indiv.Y +  int(output / math.Abs(output))
 
 			moveMite( indiv, indiv.X, newY )
+			didMove = true
+		case Ko:
+			//TODO in forward direction rather than just random
+			xOffset, yOffset := rand.Intn(3) - 1, rand.Intn(3) - 1
+			killX, killY := indiv.X + xOffset, indiv.Y + yOffset
+
+
+			if (newX >= 0 && newX < 128) && (newY >= 0 && newY < 128) {
+				gridMu[ newX ][ newY ].Lock()
+				if gridOccupy[ newX ][ newY ] {
+					// TODO kill organism there
+				}
+				gridMu[ newX ][ newY ].Unlock()
+			}
 		}
 	}
+
+	if didMove {
+		indiv.nutrition -= 0.05
+	} else { indiv.nutrition += 0.05 }
 }

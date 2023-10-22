@@ -6,6 +6,8 @@ import (
 	"encoding/csv"
 	"os"
 	"strconv"
+	"math"
+	"crypto/sha256"
 )
 
 // takes in the number of connections for a genome and returns a randomly created genome
@@ -111,4 +113,43 @@ func extractEdgeList(nnet *NeuralNetwork) error {
 // 			os.Exit(1)
 // 		}
 // 	}
+// }
+
+func getIndivColor(genome []string) (int64,int64,int64){
+	genomeString := ""
+	for _, gene := range genome {
+		genomeString += gene
+	}
+
+	// Calculate the SHA-256 hash of the input string
+	hash := sha256.Sum256([]byte(genomeString))
+	hexHash := fmt.Sprintf("%x", hash)
+
+	// Extract components for the RGB color
+	r, _ := strconv.ParseInt(hexHash[0:2], 16, 32)
+	g, _ := strconv.ParseInt(hexHash[2:4], 16, 32)
+	b, _ := strconv.ParseInt(hexHash[4:6], 16, 32)
+
+	// Normalize the components to the [0, 255] range
+	r = int64(math.Round(float64(r) * 255.0 / 255.0))
+	g = int64(math.Round(float64(g) * 255.0 / 255.0))
+	b = int64(math.Round(float64(b) * 255.0 / 255.0))
+
+	return r, g, b
+}
+
+// function euclideanDistanceRGB(color1, color2) {
+//     const r1 = color1.r;
+//     const g1 = color1.g;
+//     const b1 = color1.b;
+
+//     const r2 = color2.r;
+//     const g2 = color2.g;
+//     const b2 = color2.b;
+
+//     const dr = r2 - r1;
+//     const dg = g2 - g1;
+//     const db = b2 - b1;
+
+//     return Math.sqrt(dr * dr + dg * dg + db * db);
 // }
