@@ -3,7 +3,7 @@ package main
 import (
 	"math/rand"
 	"image/color"
-	"fmt"
+	// "fmt"
 	// "os"
 	// "time"
 )
@@ -15,6 +15,7 @@ type Mite struct {
 	X, Y int
 	birth int
 	nutrition float64
+	dead bool // flag to check if the organism is fucking dead
 	color color.Color
 }
 
@@ -25,13 +26,12 @@ func createRandomMite(numGenes int, id int) *Mite {
 
 	var x, y = 0, 0
 	for{
-		if gridOccupy[x][y] {
+		if gridOccupy[x][y] != nil {
 			x = rand.Intn(ROWS)
 			y = rand.Intn(COLS)
 		} else{ break }
 	}
 
-	gridOccupy[x][y] = true
 
 	// red := uint8(rand.Intn(256))
 	// green := uint8(rand.Intn(256))
@@ -48,28 +48,32 @@ func createRandomMite(numGenes int, id int) *Mite {
 	// fmt.Println()
 	// os.Exit(1)
 
-	return &Mite{
+	newMite := &Mite{
 		nnet: nnet,
 		genome: genome,
 		id: id,
 		X: x,
 		Y: y,
 		birth: 0,
-		nutrition: 0.2,
+		nutrition: 1.0,
+		dead: false,
 		color: color.RGBA{uint8(red),uint8(green),uint8(blue),uint8(alpha)},
 	}
+
+	gridOccupy[x][y] = newMite
+	return newMite
 }
 
 func randomizePos(mite *Mite) {
 	var x, y = rand.Intn(ROWS), rand.Intn(COLS)
 	for{
-		if gridOccupy[x][y] {
+		if gridOccupy[x][y] != nil{
 			x = rand.Intn(ROWS)
 			y = rand.Intn(COLS)
 		} else{ break }
 	}
 
-	gridOccupy[x][y] = true
+	gridOccupy[x][y] = mite
 	mite.X, mite.Y = x, y
 }
 
@@ -91,8 +95,9 @@ func createMite(genome []string) *Mite {
 		id: rand.Intn(10000), // TODO fix lol
 		X: 0,
 		Y: 0,
-		nutrition: 0.2,
+		nutrition: 1.0,
 		birth: CURR_STEP,
+		dead: false,
 		color: color.RGBA{uint8(red),uint8(green),uint8(blue),uint8(alpha)},
 	}
 
@@ -131,7 +136,7 @@ func cellDivide(mite *Mite) *Mite {
 
 		if (newX >= 0 && newX < 128) && (newY >= 0 && newY < 128) {
 			gridMu[ newX ][ newY ].Lock()
-			if !gridOccupy[ newX ][ newY ] {
+			if gridOccupy[ newX ][ newY ] == nil {
 				break
 			}
 			gridMu[ newX ][ newY ].Unlock()
@@ -145,7 +150,6 @@ func cellDivide(mite *Mite) *Mite {
 		if len(neighbors) == 0 { return nil }
 	}
 
-	gridOccupy[ newX ][ newY ] = true
 
 	genome := mutateGenome(mite.genome)
 	nnet, _ := processGenome(genome)
@@ -160,9 +164,13 @@ func cellDivide(mite *Mite) *Mite {
 		X: newX,
 		Y: newY,
 		birth: CURR_STEP,
-		nutrition: 0.2,
+		nutrition: 1.0,
+		dead: false,
 		color: color.RGBA{uint8(red),uint8(green),uint8(blue),uint8(alpha)},
 	}
+
+	gridOccupy[ newX ][ newY ] = newMite
+
 	gridMu[ newX ][ newY ].Unlock()
 
 	return newMite
@@ -204,7 +212,7 @@ func moveMite(indiv *Mite, x int, y int) {
 	// endTime := time.Now()
 	// duration += endTime.Sub(startTime)
 
-	if gridOccupy[x][y] {
+	if gridOccupy[x][y] != nil{
 		gridMu[x][y].Unlock()
 		return
 	}
@@ -216,10 +224,10 @@ func moveMite(indiv *Mite, x int, y int) {
 	// endTime = time.Now()
 	// duration += endTime.Sub(startTime)
 
-	gridOccupy[indiv.X][indiv.Y] = false
+	gridOccupy[indiv.X][indiv.Y] = nil
 	gridMu[indiv.X][indiv.Y].Unlock()
 
-	gridOccupy[x][y] = true
+	gridOccupy[x][y] = indiv
 	indiv.X, indiv.Y = x, y
 
 	gridMu[x][y].Unlock()

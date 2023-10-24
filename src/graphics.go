@@ -39,6 +39,7 @@ func (g *Game) Update() error {
 		// killWest() // selection criteria function
 
 
+
 		CURR_GEN++
 		CURR_STEP++
 		ebiten.SetWindowTitle(fmt.Sprintf("Gen %d", CURR_GEN))
@@ -102,8 +103,10 @@ func (g *Game) Update() error {
 					if mite >= len(organisms) { break }
 					stepOrganism(organisms[mite])
 
+					if organisms[mite].nutrition > 1.0 { organisms[mite].nutrition = 1.0 }
+
 					// check if organism is fucking dead
-					if CURR_STEP - organisms[mite].birth < 200 && organisms[mite].nutrition > 0.0 {
+					if CURR_STEP - organisms[mite].birth < 200 && organisms[mite].nutrition > 0.0 && !organisms[mite].dead {
 						updateMu.Lock()
 						*children = append(*children, organisms[mite])
 						updateMu.Unlock()
@@ -133,6 +136,13 @@ func (g *Game) Update() error {
 		// fmt.Println(duration)
 		// duration = 0
 	}
+
+	gridOccupy = [][]*Mite{}
+	createOccupancyGrid(ROWS, COLS)
+	for _, mite := range organisms {
+		gridOccupy[mite.X][mite.Y] = mite
+	}
+
 	return nil
 }
 

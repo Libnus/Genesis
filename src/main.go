@@ -74,14 +74,14 @@ var ROWS = 128
 var COLS = 128
 
 var organisms []*Mite
-var gridOccupy = [][]bool{} // every grid position
+var gridOccupy = [][]*Mite{} // every grid position
 // TODO ^^ replace with *Mite instead of bool so we can perform more complex calculations about the organisms occupying particular grid locations
 
 // used to sync occupancy grid
 var gridMu = [][]*sync.Mutex{}
 
 func clearGrid(){
-	gridOccupy = [][]bool{}
+	gridOccupy = [][]*Mite{}
 	gridMu = [][]*sync.Mutex{}
 }
 
@@ -89,11 +89,11 @@ func createOccupancyGrid(rows int, cols int){
 	clearGrid()
 
 	for i := 0; i < rows; i++ {
-		gridOccupy = append(gridOccupy, make([]bool, cols))
+		gridOccupy = append(gridOccupy, make([]*Mite, cols))
 		gridMu = append(gridMu, make([]*sync.Mutex, cols))
 		for j := 0; j < cols; j++ {
 			// each position is not occupied initially
-			gridOccupy[i][j] = false
+			gridOccupy[i][j] = nil
 			gridMu[i][j] = &sync.Mutex{}
 		}
 	}
@@ -117,11 +117,11 @@ func main() {
 	// _ = calcNeuralPotential(nnet)
 	// fmt.Println("______")
 
-	for i := 0; i < 20; i++{
+	for i := 0; i < 1000; i++{
 		organisms = append(organisms, createRandomMite(100, i))
 	}
 
-	ebiten.SetMaxTPS(60)
+	ebiten.SetMaxTPS(30)
 
 	ebiten.SetWindowSize(ROWS*5, COLS*5)
 	ebiten.SetWindowTitle("Gen 0")

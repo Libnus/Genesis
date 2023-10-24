@@ -60,6 +60,7 @@ const (
 	Pop // population density in the immediate area
 	LMx // last movement in the x-direction
 	LMy // last movement in the y-direction
+	N   // nutrition level
 	// TODO oscillator timed with seasons? Or could this be developed naturally
 	// TODO temperature input
 	// TODO hunger level / nutritional levels (required vs current level)
@@ -438,6 +439,8 @@ func calculateInput(indiv *Mite, id int) float64{
 		return float64(indiv.Y) / float64(COLS)
 	case Rnd:
 		return rand.Float64()
+	case N:
+		return indiv.nutrition
 	}
 
 	return 0.0
@@ -615,18 +618,24 @@ func stepOrganism(indiv *Mite) {
 			xOffset, yOffset := rand.Intn(3) - 1, rand.Intn(3) - 1
 			killX, killY := indiv.X + xOffset, indiv.Y + yOffset
 
+			if killX == indiv.X && killY == indiv.Y { continue }
 
-			if (newX >= 0 && newX < 128) && (newY >= 0 && newY < 128) {
-				gridMu[ newX ][ newY ].Lock()
-				if gridOccupy[ newX ][ newY ] {
+			if (killX >= 0 && killX < 128) && (killY >= 0 && killY < 128) {
+				gridMu[ killX ][ killY ].Lock()
+				if gridOccupy[ killX ][ killY ] != nil {
 					// TODO kill organism there
+					gridOccupy[killX][killY].dead = true
+					indiv.nutrition += gridOccupy[killX][killY].nutrition
 				}
-				gridMu[ newX ][ newY ].Unlock()
+				gridMu[ killX ][ killY ].Unlock()
 			}
 		}
 	}
 
 	if didMove {
-		indiv.nutrition -= 0.05
-	} else { indiv.nutrition += 0.05 }
+		didMove = false
+	}
+	if didMove {
+		indiv.nutrition -= 0.1
+	} else { indiv.nutrition += 0.2 }
 }

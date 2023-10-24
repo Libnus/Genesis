@@ -38,7 +38,6 @@ func mutateGenome(genome []string) []string {
 		newG := []rune(gCopy)
 		for i, base := range gCopy{
 			if rand.Intn(15001) == mutationRate{
-				fmt.Println("mutation occurred!")
 				if base == '0' {
 					newG[i] = '1'
 				} else { newG[i] = '0' }
