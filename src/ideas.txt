@@ -1,0 +1,3 @@
+World history timeline (show biggest species against time)
+Bar chart race (show population over time)
+Temporal directed graph (show brain evolution of creatures)

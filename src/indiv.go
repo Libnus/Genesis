@@ -9,14 +9,49 @@ import (
 )
 
 type Mite struct {
-	nnet *NeuralNetwork
-	genome []string
-	id int
+	Genus string
+	Species string
+	Nnet *NeuralNetwork
+	Genome []string
+	Id int
 	X, Y int
-	birth int
-	nutrition float64
-	dead bool // flag to check if the organism is fucking dead
-	color color.Color
+	Birth int
+	Nutrition float64
+	Dead bool // flag to check if the organism is dead
+	Color color.Color
+	Sick int // is the creature sick. 0 is not
+			 // if > 0 then Sick acts as a timer for how many more steps they are sick
+}
+
+func getName(mite *Mite) string{
+	return mite.Genus + " " + mite.Species
+}
+
+func generateMiteName(mite1, mite2 *Mite){
+
+	if mite2 == nil {
+		mite1.Genus = generateGenusName()
+		mite1.Species = generateSpeciesName()
+		return
+	}
+
+	speciesThreshold := 0.95
+	genusThreshold := 0.85
+
+	genus := mite1.Genus
+	species := mite1.Species
+
+	similarity := genomeSimilarity(mite1.Genome, mite2.Genome)
+
+	if similarity < genusThreshold{ // make new genus and name
+		mite2.Genus = generateGenusName()
+		mite2.Species = generateSpeciesName()
+	} else if similarity < speciesThreshold{ // just new speices name
+		mite2.Species = generateSpeciesName()
+	} else{
+		mite2.Genus = genus
+		mite2.Species = species
+	}
 }
 
 // NOTE:: iterative
@@ -38,8 +73,6 @@ func createRandomMite(numGenes int, id int) *Mite {
 	// blue := uint8(rand.Intn(256))
 	// alpha := uint8(rand.Intn(256))
 
-	red, green, blue := getIndivColor(genome)
-	alpha := 255
 
 	// fmt.Println("\nMite")
 	// for _, gene := range genome {
@@ -49,16 +82,26 @@ func createRandomMite(numGenes int, id int) *Mite {
 	// os.Exit(1)
 
 	newMite := &Mite{
-		nnet: nnet,
-		genome: genome,
-		id: id,
+		Nnet: nnet,
+		Genome: genome,
+		Id: MITE_ID,
 		X: x,
 		Y: y,
-		birth: 0,
-		nutrition: 1.0,
-		dead: false,
-		color: color.RGBA{uint8(red),uint8(green),uint8(blue),uint8(alpha)},
+		Birth: 0,
+		Nutrition: 1.0,
+		Dead: false,
 	}
+
+
+	speciesMu.Lock()
+	MITE_ID++
+	speciesMu.Unlock()
+	generateMiteName(newMite, nil)
+
+	red, green, blue := getIndivColor(getName(newMite))
+
+	alpha := 255
+	newMite.Color = color.RGBA{uint8(red),uint8(green),uint8(blue),uint8(alpha)}
 
 	gridOccupy[x][y] = newMite
 	return newMite
@@ -86,20 +129,25 @@ func createMite(genome []string) *Mite {
 	// blue := uint8(rand.Intn(256))
 	// alpha := uint8(rand.Intn(256))
 
-	red, green, blue := getIndivColor(genome)
-	alpha := 255
 
 	newMite := &Mite{
-		nnet: nnet,
-		genome: genome,
-		id: rand.Intn(10000), // TODO fix lol
+		Nnet: nnet,
+		Genome: genome,
+		Id: MITE_ID, // TODO fix lol
 		X: 0,
 		Y: 0,
-		nutrition: 1.0,
-		birth: CURR_STEP,
-		dead: false,
-		color: color.RGBA{uint8(red),uint8(green),uint8(blue),uint8(alpha)},
+		Nutrition: 1.0,
+		Birth: CURR_STEP,
+		Dead: false,
 	}
+
+	MITE_ID++
+
+	generateMiteName(newMite, nil)
+	red, green, blue := getIndivColor(getName(newMite))
+	alpha := 255
+
+	newMite.Color = color.RGBA{uint8(red),uint8(green),uint8(blue),uint8(alpha)}
 
 	randomizePos(newMite)
 	return newMite
@@ -151,23 +199,29 @@ func cellDivide(mite *Mite) *Mite {
 	}
 
 
-	genome := mutateGenome(mite.genome)
+	genome := mutateGenome(mite.Genome)
 	nnet, _ := processGenome(genome)
 
-	red, green, blue := getIndivColor(genome)
-	alpha := 255
+
 
 	newMite := &Mite{
-		nnet: nnet,
-		genome: genome,
-		id: rand.Intn(10000), // TODO fix lol
+		Nnet: nnet,
+		Genome: genome,
+		Id: rand.Intn(10000), // TODO fix lol
 		X: newX,
 		Y: newY,
-		birth: CURR_STEP,
-		nutrition: 1.0,
-		dead: false,
-		color: color.RGBA{uint8(red),uint8(green),uint8(blue),uint8(alpha)},
+		Birth: CURR_STEP,
+		Nutrition: 1.0,
+		Dead: false,
+		// Color: color.RGBA{uint8(red),uint8(green),uint8(blue),uint8(alpha)},
 	}
+
+
+	generateMiteName(mite, newMite)
+	red, green, blue := getIndivColor(getName(newMite))
+	alpha := 255
+	newMite.Color = color.RGBA{uint8(red),uint8(green),uint8(blue),uint8(alpha)}
+
 
 	gridOccupy[ newX ][ newY ] = newMite
 
@@ -204,6 +258,7 @@ func moveMite(indiv *Mite, x int, y int) {
 	// check collisions
 	if x < 0 || x >= ROWS { return }
 	if y < 0 || y >= COLS { return }
+
 
 	// check for other mites in the new square
 

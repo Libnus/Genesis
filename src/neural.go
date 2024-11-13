@@ -89,6 +89,7 @@ func printInputEnumId(id int) string {
 		case int(LMy):
 			return "LMy"
 	}
+	fmt.Println("error couldn't find", id)
 	return ""
 }
 
@@ -136,19 +137,19 @@ const (
 )
 
 func getNeuronString(node *Neuron) string{
-	if node.neuronType == InputType{
-		return printInputEnumId(node.id)
-	} else if node.neuronType == InternalType{
-		return fmt.Sprintf("N%d", node.id)
+	if node.NeuronType == InputType{
+		return printInputEnumId(node.Id)
+	} else if node.NeuronType == InternalType{
+		return fmt.Sprintf("N%d", node.Id)
 	} else{
-		return printOutputEnumId(node.id)
+		return printOutputEnumId(node.Id)
 	}
 }
 
 func neuronGetColor(node *Neuron) string{
-	if node.neuronType == InputType{
+	if node.NeuronType == InputType{
 		return "white"
-	} else if node.neuronType == InternalType{
+	} else if node.NeuronType == InternalType{
 		return "gray"
 	} else{
 		return "red"
@@ -177,12 +178,12 @@ var MAX_NEURONS = NUM_INPUTS + NUM_OUTPUTS + MAX_INTERNAL
 // a neuron to represent the neuron/node in our network graph
 type Neuron struct {
 	//name int
-	id int
-	neuronType NeuronType
-	currInputSum float64
-	currOutput float64
-	inputs int
-	outputs int  
+	Id int
+	NeuronType NeuronType
+	CurrInputSum float64
+	CurrOutput float64
+	Inputs int
+	Outputs int
 }	
 
 // func createInputNode(name int) *InputSensor{
@@ -194,20 +195,20 @@ type Neuron struct {
 
 // a wire struct which contains the informaiton for an edge in our network graph
 type Wire struct {
-	weight float64
-	source int // hash of the source node
-	destination int // hash of the destination node
+	Weight float64
+	Source int // hash of the source node
+	Destination int // hash of the destination node
 }
 
 // the graph structure itself
 // we use id as key to avoid references and to make processing the adding/deleting of genomes as data is primitively stored as an int id
 type NeuralNetwork struct {
 	//numInternal int // number of internal neurons
-	networkMap map[int][2][]*Wire // the network where the key is a node id and the key is a list of connections
+	NetworkMap map[int][2][]*Wire // the network where the key is a node id and the key is a list of connections
 								 // index 0 represents outgoing connections and index 1 represents incoming connections
-	nodeMap map[int]*Neuron // map of all nodes where the key is an id and the value is the the neuron itself for quick access
-	inputNeurons []int // nodes sorted topologically (least number of inputs first / input sensory neurons first)
-	outputNeurons []int // all output nodes
+	NodeMap map[int]*Neuron // map of all nodes where the key is an id and the value is the the neuron itself for quick access
+	InputNeurons []int // nodes sorted topologically (least number of inputs first / input sensory neurons first)
+	OutputNeurons []int // all output nodes
 }
 
 
@@ -221,20 +222,20 @@ func addNeuron(nnet *NeuralNetwork, id int, neuronType int) *Neuron {
 	// if this is an input lets keep track of it for faster processing when doing DFS
 	
 	neuronHashVal := hashNeuron(id, neuronType)
-	_, ok := nnet.nodeMap[neuronHashVal]
+	_, ok := nnet.NodeMap[neuronHashVal]
 	if ok{ // the neuron already exists in the network so return it
-		return nnet.nodeMap[neuronHashVal]	
+		return nnet.NodeMap[neuronHashVal]
 	}
 
 
 	// otherwise add the neuron to the network
-	nnet.nodeMap[neuronHashVal] = &Neuron{
-		id: id,
-		neuronType: NeuronType(neuronType),
-		currInputSum: 0.0,
-		currOutput: 0.0,
-		inputs: 0,
-		outputs: 0,
+	nnet.NodeMap[neuronHashVal] = &Neuron{
+		Id: id,
+		NeuronType: NeuronType(neuronType),
+		CurrInputSum: 0.0,
+		CurrOutput: 0.0,
+		Inputs: 0,
+		Outputs: 0,
 	}
 	// id int
 	// neuronType int
@@ -244,11 +245,11 @@ func addNeuron(nnet *NeuralNetwork, id int, neuronType int) *Neuron {
 	// outputs int  
 
 	if neuronType == 0 { // if input neuron
-		nnet.inputNeurons = append(nnet.inputNeurons, neuronHashVal)
+		nnet.InputNeurons = append(nnet.InputNeurons, neuronHashVal)
 	} else if neuronType == 1 { // if output neuron
-		nnet.outputNeurons = append(nnet.outputNeurons, neuronHashVal)
+		nnet.OutputNeurons = append(nnet.OutputNeurons, neuronHashVal)
 	}
-	return nnet.nodeMap[neuronHashVal]
+	return nnet.NodeMap[neuronHashVal]
 }	
 
 // strong precondition: NEVER ATTEMPT TO ADD A DUPLICATE WIRE
@@ -264,25 +265,25 @@ func addWire(nnet *NeuralNetwork, sourceType int, sourceId int, destType int, de
 	sourceHashVal := hashNeuron(sourceId, sourceType)
 	destHashVal := hashNeuron(destId, destType)
 
-	nnet.nodeMap[sourceHashVal].outputs++
-	nnet.nodeMap[destHashVal].inputs++
+	nnet.NodeMap[sourceHashVal].Outputs++
+	nnet.NodeMap[destHashVal].Inputs++
 
 	// weight float64
 	// source hash
 	// destination int // hash of the destination node
 	newWire := &Wire {
-		weight: weight,
-		source: sourceHashVal,
-		destination: destHashVal,
+		Weight: weight,
+		Source: sourceHashVal,
+		Destination: destHashVal,
 	}
 
-	tempSlice := nnet.networkMap[sourceHashVal]
-	tempSlice[0] = append(nnet.networkMap[sourceHashVal][0], newWire)
-	nnet.networkMap[sourceHashVal] = tempSlice
+	tempSlice := nnet.NetworkMap[sourceHashVal]
+	tempSlice[0] = append(nnet.NetworkMap[sourceHashVal][0], newWire)
+	nnet.NetworkMap[sourceHashVal] = tempSlice
 
-	tempSlice = nnet.networkMap[destHashVal]
-	tempSlice[1] = append(nnet.networkMap[destHashVal][1], newWire)
-	nnet.networkMap[destHashVal] = tempSlice
+	tempSlice = nnet.NetworkMap[destHashVal]
+	tempSlice[1] = append(nnet.NetworkMap[destHashVal][1], newWire)
+	nnet.NetworkMap[destHashVal] = tempSlice
 
 	return newWire
 }
@@ -309,9 +310,9 @@ func processGenome(genome []string) (*NeuralNetwork, error) {
 	// create a new network
 	newNetwork := new(NeuralNetwork)
 	// newNetwork.numInternal = numInternal
-	newNetwork.networkMap = make(map[int][2][]*Wire)
-	newNetwork.nodeMap = make(map[int]*Neuron)
-	newNetwork.inputNeurons = []int{}
+	newNetwork.NetworkMap = make(map[int][2][]*Wire)
+	newNetwork.NodeMap = make(map[int]*Neuron)
+	newNetwork.InputNeurons = []int{}
 
 
 	for i := 0; i < len(genome); i++ {
@@ -390,42 +391,43 @@ func processGenome(genome []string) (*NeuralNetwork, error) {
 	return newNetwork, nil
 }
 
+
 func printNode(node *Neuron) {
-	switch node.neuronType{
+	switch node.NeuronType{
 	case InputType:
-		fmt.Printf("   Input neuron: %s\n", printInputEnumId(node.id))
+		fmt.Printf("   Input neuron: %s\n", printInputEnumId(node.Id))
 	case OutputType:
-		fmt.Printf("   Output neuron: %s\n", printOutputEnumId(node.id))
+		fmt.Printf("   Output neuron: %s\n", printOutputEnumId(node.Id))
 	case InternalType:
-		fmt.Println("   Internal neuron:", node.id)
+		fmt.Println("   Internal neuron:", node.Id)
 	}
 }
 
 func printWire(nnet *NeuralNetwork, wire *Wire) {
 	fmt.Println(" Starting neuron:")
-	sourceNode := nnet.nodeMap[wire.source]
+	sourceNode := nnet.NodeMap[wire.Source]
 	printNode(sourceNode)
 
 	fmt.Println(" Ending neuron:", )
-	endNode := nnet.nodeMap[wire.destination]
+	endNode := nnet.NodeMap[wire.Destination]
 	printNode(endNode)
 
-	fmt.Println(" Wire Weight:", wire.weight)
+	fmt.Println(" Wire Weight:", wire.Weight)
 	fmt.Println()
 }
 
 func printNeural(nnet *NeuralNetwork) {
 	fmt.Println("[ PRINT ] printing neural network nodes...")
 
-	for _, node := range nnet.nodeMap {
+	for _, node := range nnet.NodeMap {
 		printNode(node)
 	}
 
 	fmt.Println()
 
 	fmt.Println("[ PRINT ] printing wires...")
-	for nodeHash, _ := range nnet.networkMap {
-		for _, wire := range nnet.networkMap[nodeHash][0]{
+	for nodeHash, _ := range nnet.NetworkMap {
+		for _, wire := range nnet.NetworkMap[nodeHash][0]{
 			printWire(nnet, wire)
 		}
 	}
@@ -440,7 +442,7 @@ func calculateInput(indiv *Mite, id int) float64{
 	case Rnd:
 		return rand.Float64()
 	case N:
-		return indiv.nutrition
+		return indiv.Nutrition
 	}
 
 	return 0.0
@@ -464,26 +466,33 @@ func traverseNode(neuralMu map[int]*sync.Mutex, visitedMu map[int]*sync.Mutex, v
 	neuralMu[nodeHash].Unlock()
 
 
-	currNeuron := nnet.nodeMap[nodeHash] // current neuron we are traversing over
+	currNeuron := nnet.NodeMap[nodeHash] // current neuron we are traversing over
+
+
+	/* CUDA
+	 * 1.) pre-traverse no computation just calculate paths
+	 * 2.) computation []
+	 *
+	 */
 
 	neuronOutput := 0.0
 	// if on an input node calculate sensory inputs
-	if currNeuron.neuronType == InputType {
-		neuronOutput = calculateInput(indiv, currNeuron.id)
+	if currNeuron.NeuronType == InputType {
+		neuronOutput = calculateInput(indiv, currNeuron.Id)
 	} else{
 		// sum all incoming edges
-		for _, incomingEdge := range nnet.networkMap[nodeHash][1] {
+		for _, incomingEdge := range nnet.NetworkMap[nodeHash][1] {
 			// incomingEdge is of type wire
 			//fmt.Println("[ DFS ]", nodeHash, "calculating input from", incomingEdge.source, "::", nnet.nodeMap[incomingEdge.source].currOutput)
-			neuralMu[incomingEdge.source].Lock()
-			neuronOutput += nnet.nodeMap[incomingEdge.source].currOutput * incomingEdge.weight
-			neuralMu[incomingEdge.source].Unlock()
+			neuralMu[incomingEdge.Source].Lock()
+			neuronOutput += nnet.NodeMap[incomingEdge.Source].CurrOutput * incomingEdge.Weight
+			neuralMu[incomingEdge.Source].Unlock()
 		}
 		neuronOutput = math.Tanh(neuronOutput)
 	}
 
 	neuralMu[nodeHash].Lock()
-	currNeuron.currOutput = neuronOutput
+	currNeuron.CurrOutput = neuronOutput
 	neuralMu[nodeHash].Unlock()
 
 	//fmt.Println("   calculated output as:", neuronOutput)
@@ -494,12 +503,12 @@ func traverseNode(neuralMu map[int]*sync.Mutex, visitedMu map[int]*sync.Mutex, v
 
 	// for each neighbor create a new routine
 	var wgTraverse sync.WaitGroup
-	for _, outgoingEdge := range nnet.networkMap[nodeHash][0] {
+	for _, outgoingEdge := range nnet.NetworkMap[nodeHash][0] {
 		wgTraverse.Add(1)
 
 		go func(outgoingEdge *Wire){
 			defer wgTraverse.Done()
-			traverseNode(neuralMu, visitedMu, visitedNeurons, indiv, nnet, outgoingEdge.destination)
+			traverseNode(neuralMu, visitedMu, visitedNeurons, indiv, nnet, outgoingEdge.Destination)
 		}(outgoingEdge)
 	}
 
@@ -516,12 +525,12 @@ func calcNeuralPotential(indiv *Mite, nnet *NeuralNetwork) map[OutputNeuron]floa
 
 	// fmt.Println("[ NNET ] Calculating neural output potential...\n		Starting DFS...")
 
-	for nodeHash, _ := range nnet.nodeMap{
+	for nodeHash, _ := range nnet.NodeMap{
 		neuralMu[nodeHash] = &sync.Mutex{}
 	}
 
 	// for each input node create a go routine and then for each neighbor start another routine
-	for _, nodeHash := range nnet.inputNeurons {
+	for _, nodeHash := range nnet.InputNeurons {
 		// start a go routine
 		wgNeural.Add(1)
 
@@ -529,7 +538,7 @@ func calcNeuralPotential(indiv *Mite, nnet *NeuralNetwork) map[OutputNeuron]floa
 		visitedNeurons := make(map[int]*bool)
 		visitedMu := make(map[int]*sync.Mutex)
 
-		for node, _ := range nnet.nodeMap{ // for every key
+		for node, _ := range nnet.NodeMap{ // for every key
 			bar := false
 			visitedNeurons[node] = &bar
 			//visitedMu[node] = &sync.Mutex{}
@@ -549,9 +558,9 @@ func calcNeuralPotential(indiv *Mite, nnet *NeuralNetwork) map[OutputNeuron]floa
 	netOutput := make(map[OutputNeuron]float64)
 
 	// wait for DFS to finish then loop over all output nodes and organize results
-	for _, nodeHash := range nnet.outputNeurons {
-		outputNeuron := nnet.nodeMap[nodeHash]
-		netOutput[OutputNeuron(outputNeuron.id)] = outputNeuron.currOutput
+	for _, nodeHash := range nnet.OutputNeurons {
+		outputNeuron := nnet.NodeMap[nodeHash]
+		netOutput[OutputNeuron(outputNeuron.Id)] = outputNeuron.CurrOutput
 	}
 
 	// fmt.Println(netOutput)
@@ -581,7 +590,12 @@ func calcNeuralPotential(indiv *Mite, nnet *NeuralNetwork) map[OutputNeuron]floa
 	however, once a neuron has been fired, it cannot be refired
 */
 func stepOrganism(indiv *Mite) {
-	netOutput := calcNeuralPotential(indiv, indiv.nnet)
+
+	if indiv.Dead{
+		return
+	}
+
+	netOutput := calcNeuralPotential(indiv, indiv.Nnet)
 
 	didMove := false
 
@@ -618,24 +632,79 @@ func stepOrganism(indiv *Mite) {
 			xOffset, yOffset := rand.Intn(3) - 1, rand.Intn(3) - 1
 			killX, killY := indiv.X + xOffset, indiv.Y + yOffset
 
+			// dont kill myself ?
 			if killX == indiv.X && killY == indiv.Y { continue }
 
 			if (killX >= 0 && killX < 128) && (killY >= 0 && killY < 128) {
 				gridMu[ killX ][ killY ].Lock()
+				// its possible that after locking the grid position is now empty
+				// the kill is ignored or considered a "failed" attempt
 				if gridOccupy[ killX ][ killY ] != nil {
 					// TODO kill organism there
-					gridOccupy[killX][killY].dead = true
-					indiv.nutrition += gridOccupy[killX][killY].nutrition
+					gridOccupy[killX][killY].Dead = true
+					indiv.Nutrition += 2*gridOccupy[killX][killY].Nutrition
+					// fmt.Println("KILLINGNGNGNGNGNNGNG")
+
+					// if *rpy_flag{
+					// 	addEvent(Kill, indiv, gridOccupy[killX][killY])
+					// }
+					addKill()
 				}
 				gridMu[ killX ][ killY ].Unlock()
 			}
 		}
 	}
 
-	if didMove {
-		didMove = false
+	if indiv.Sick > 0{
+		indiv.Nutrition -= 0.5
+
+		if indiv.Nutrition > 0.0 {
+			indiv.Sick--
+		}
+
+		neighbors := [][2]int{
+			{-1, -1}, // Top-left
+			{-1, 0},  // Top
+			{-1, 1},  // Top-right
+			{0, -1},  // Left
+			{0, 1},   // Right
+			{1, -1},  // Bottom-left
+			{1, 0},   // Bottom
+			{1, 1},   // Bottom-right
+		}
+
+		for _, neighbor := range neighbors {
+			x := indiv.X + neighbor[0]
+			y := indiv.Y + neighbor[1]
+
+			if (x < 0 || x >= 128) || (y < 0 || y >= 128) { continue }
+
+
+			// TODO fresh sick mite spread easier
+			if rand.Float64() < 0.25{ // it spreads 0.1
+				gridMu[ x ][ y ].Lock()
+				if gridOccupy[x][y] != nil && gridOccupy[x][y].Sick == 0 && !gridOccupy[x][y].Dead  {
+					gridOccupy[ x ][ y ].Sick = rand.Intn(50) + 1
+				}
+				gridMu[ x ][ y ].Unlock()
+			}
+		}
 	}
+
+	if indiv.Nutrition <= 0.0 {
+		// if indiv.Sick > 0{
+		// 	removeSick()
+		// 	// CURR_SICK--
+		// }
+		indiv.Dead = true
+		return
+	}
+
+	// if didMove {
+	// 	didMove = false
+	// }
 	if didMove {
-		indiv.nutrition -= 0.1
-	} else { indiv.nutrition += 0.2 }
+		indiv.Nutrition -= 0.05
+	}else { indiv.Nutrition += 0.1 }
+
 }

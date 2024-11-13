@@ -1,13 +1,23 @@
 package main
 
 import (
-    // "fmt"
-	// "os"
+    "fmt"
+	"os"
+    "os/signal"
+    "syscall"
+	"flag"
 	"log"
+	// "time"
 	"sync"
+	"math/rand"
+	"image/color"
+	// "strconv"
+	"net/http"
 
 	"github.com/hajimehoshi/ebiten/v2"
+
 )
+
 
 
 // func hexTo32BitBinary(hexString string) (string, error) {
@@ -72,13 +82,32 @@ to make new connections and delete unused ones (for allowing the neural network 
 
 var ROWS = 128
 var COLS = 128
+var MITE_ID = 0
 
+var sigChan = make(chan os.Signal, 1)
+
+var species = make(map[color.Color]int)
 var organisms []*Mite
 var gridOccupy = [][]*Mite{} // every grid position
+
+// keep replays
+
 // TODO ^^ replace with *Mite instead of bool so we can perform more complex calculations about the organisms occupying particular grid locations
 
 // used to sync occupancy grid
 var gridMu = [][]*sync.Mutex{}
+var gridLockMu sync.Mutex
+var speciesMu sync.Mutex
+
+// func addSpecies(mite *Mite){
+// 	speciesMu.Lock()
+// 	if _, exists := species[mite.Color]; exists{
+// 		species[mite.Color]++
+// 	} else{
+// 		species[mite.Color] = 1
+// 	}
+// 	speciesMu.Unlock()
+// }
 
 func clearGrid(){
 	gridOccupy = [][]*Mite{}
@@ -99,7 +128,54 @@ func createOccupancyGrid(rows int, cols int){
 	}
 }
 
+var rpy_flag *bool
+
 func main() {
+
+    // Notify the channel on SIGINT and SIGTERM signals
+    signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+
+	var draw = flag.Bool("draw", true, "Enable or disable drawing")
+	var seed = flag.Int64("seed", 1125, "help message for flag n")
+	var loadReplay = flag.Bool("load_replay", false, "load a replay from organisms.rpy")
+
+	rpy_flag = flag.Bool("replay", false, "replay events")
+	var maxStep = flag.Int("max_step", 0, "maximum number of steps to simulate")
+	var brain = flag.Bool("brain", false, "fetches a brain from a replay")
+	flag.Parse()
+
+	fmt.Println(*brain)
+
+	if *brain{
+		fmt.Println("getting a brain")
+		loadReplayFromFile("organisms.rpy")
+		getBrains()
+		return // just fetch brain and return
+	}
+
+	if *loadReplay{
+		fmt.Print("loading replay...")
+		*draw = true
+		initReplay()
+		*rpy_flag = false
+		loadReplayFromFile("organisms.rpy")
+
+	}
+
+	// error checking
+	 // if len(os.Arg) > 1 {
+     //    seed, err := strconv.ParseInt(os.Args[1], 10, 64)
+     //    if err != nil {
+     //        fmt.Println("Invalid seed:", os.Args[1])
+     //        return
+     //    }
+    rand.Seed(*seed)
+    // } else {
+    //     rand.Seed(time.Now().UnixNano())
+    // }
+
+	game := &Game{drawEnabled: *draw, rpy: *rpy_flag, isReplay: *loadReplay, maxStep: *maxStep}
+
 
 	createOccupancyGrid(ROWS, COLS)
 
@@ -116,16 +192,71 @@ func main() {
 
 	// _ = calcNeuralPotential(nnet)
 	// fmt.Println("______")
-
-	for i := 0; i < 1000; i++{
-		organisms = append(organisms, createRandomMite(100, i))
+	if *rpy_flag {
+		initReplay()
 	}
 
-	ebiten.SetMaxTPS(30)
+
+	if !*loadReplay{
+		for i := 0; i < 1000; i++{
+			mite := createRandomMite(100, i)
+			// generateMiteName(mite, nil)
+			organisms = append(organisms, mite)
+			addSpecies(mite)
+
+			if *rpy_flag {
+				//replay.Events[0] = append(replay.Events[0], createEvent(Birth, nil, mite))
+				addEvent(Birth, nil, mite)
+			}
+
+			treeInsert("root", getName(mite), colorToHex(mite.Color), treeData)
+		}
+	}
+
+
+	// genome1 := organisms[0].Genome
+	// genome2 := genome1
+
+	// similarity := compareGenomes(genome1, genome2)
+
+	// for i := range 100 {
+	// 	genome2 = mutateGenome(genome2)
+	// 	similarity := genomeSimilarity(genome1, genome2)
+	// 	fmt.Printf("%d   Similarity: %.2f%%\n", i, similarity)
+	// }
+
+
+	// // fmt.Printf("Genome similarity: %.2f%%\n", similarity)
+	// fmt.Println(len(genome1), len(genome2))
+	// return
+
+	// graphing / logging
+	// http.HandleFunc("/", httpserver)
+	// http.ListenAndServe(":8081", nil)
+	// go func() {
+    //     http.HandleFunc("/", httpserver)
+    //     http.ListenAndServe(":8081", nil)
+    // }()
+
+	go func(){
+		http.HandleFunc("/data", dataHandler)
+		log.Fatal(http.ListenAndServe(":8080", nil))
+	}()
+
+	go signalHandler(*rpy_flag)
+
+
+	if *draw {
+        ebiten.SetMaxTPS(60) // Sync TPS with FPS if drawing
+    }
+
+	// else {
+    //     ebiten.SetMaxTPS(0) // Run at maximum TPS if drawing is disabled
+    // }
 
 	ebiten.SetWindowSize(ROWS*5, COLS*5)
 	ebiten.SetWindowTitle("Gen 0")
-	if err := ebiten.RunGame(&Game{}); err != nil {
+	if err := ebiten.RunGame(game); err != nil {
 		log.Fatal(err)
 	}
 }
