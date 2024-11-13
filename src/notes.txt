@@ -1,0 +1,8 @@
+-mites no longer divide if murdered in the same step
+-genus and species name added
+-genome similarity test to create new species
+	-updated chart to reflect this
+-avg brain size added to pop_chart
+-sick deaths added to replay events
+-mutation rate increased
+-brains actually shrink and expand with mutation now

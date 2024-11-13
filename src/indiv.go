@@ -154,6 +154,8 @@ func createMite(genome []string) *Mite {
 }
 
 func cellDivide(mite *Mite) *Mite {
+	if mite.Dead { return nil } // don't divide if dead
+	// mites no longer birth if dead
 
 	// get a position NOTE: will not spawn if all neighbor grids are occupied
 
@@ -217,7 +219,11 @@ func cellDivide(mite *Mite) *Mite {
 	}
 
 
-	generateMiteName(mite, newMite)
+	speciesMu.Lock()
+	firstOrganism := speciesData[getName(mite)].original // get first organism in species
+	// if firstOrganism == nil {fmt.Println("here", speciesData[getName(mite)].num) }
+	speciesMu.Unlock()
+	generateMiteName(firstOrganism, newMite)
 	red, green, blue := getIndivColor(getName(newMite))
 	alpha := 255
 	newMite.Color = color.RGBA{uint8(red),uint8(green),uint8(blue),uint8(alpha)}

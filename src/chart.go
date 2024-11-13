@@ -25,6 +25,7 @@ type BarDataPoint struct {
 // keep track of population
 type PopDataPoint struct{
 	num int
+	original *Mite
 	color string
 }
 
@@ -92,8 +93,10 @@ func addSpecies(species *Mite){
         // Key does not exist, create a new entry
         speciesData[getName(species)] = PopDataPoint{
             num:   1,
+			original: species,
             color: colorToHex(species.Color), // Example color
         }
+        // fmt.Println("added new species", speciesData[getName(species)])
     }
 	speciesMu.Unlock()
 }
