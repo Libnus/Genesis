@@ -4,6 +4,9 @@ import (
     "encoding/json"
     // "time"
     "fmt"
+	"log"
+	"runtime"
+	"os/exec"
     "sync"
     "net/http"
 	// "image/color"
@@ -27,6 +30,11 @@ type PopDataPoint struct{
 	num int
 	original *Mite
 	color string
+}
+
+type RequestData struct {
+	Message string `json:"message"`
+	Value   string    `json:"value"`
 }
 
 
@@ -108,11 +116,12 @@ func removeSpecies(species *Mite){
 	data, _ := speciesData[getName(species)]
 	data.num--
 
-	if data.num == 0{
-		delete (speciesData, getName(species))
-	} else{
-		speciesData[getName(species)] = data
+	if data.num <= 0{
+		// fmt.Println("removing ", getName(species))
+		// delete (speciesData, getName(species))
+		data.num = 0
 	}
+	speciesData[getName(species)] = data
 	speciesMu.Unlock()
 }
 
@@ -121,6 +130,31 @@ func appendKillingData(){
 	CURR_KILL = 0
 }
 
+func treePathSearch(searchItem string, currPath []string, node *TreeNode) []string{
+	if node.Name != "root" {
+		currPath = append(currPath, node.Name)
+	}
+
+	if node.Name == searchItem{
+
+		// fmt.Println(node.Name, searchItem, node.Name == searchItem, currPath)
+		return currPath
+	}
+
+	if len(node.Children) == 0{
+		return nil
+	}
+
+	for _, next := range node.Children{
+		newPath := append([]string{}, currPath...)
+		resultPath := treePathSearch(searchItem, newPath, next)
+		if resultPath != nil{
+			return resultPath
+		}
+	}
+
+	return nil
+}
 
 func treeInsert(parent string, child string, color string, node *TreeNode) bool{
 	if node.Name == parent{
@@ -143,9 +177,204 @@ func treeInsert(parent string, child string, color string, node *TreeNode) bool{
 	return false
 }
 
-func dataHandler(w http.ResponseWriter, r *http.Request) {
+func openBrowser(url string) {
+    var err error
+    switch runtime.GOOS {
+    case "linux":
+        err = exec.Command("xdg-open", url).Start()
+    case "windows":
+        err = exec.Command("rundll32", "url.dll,FileProtocolHandler", url).Start()
+    case "darwin":
+        err = exec.Command("open", url).Start()
+    }
+    if err != nil {
+        log.Printf("Failed to open browser: %v", err)
+    }
+}
+
+// NOTE do not call when program is running recursively
+func openBrainBrowser(x,y int){
+	// speciesMu.Lock()
+	// mite := speciesData[species].original
+	// speciesMu.Unlock()
+	// miteBrain := getBrain(mite.Nnet)
+
+	// // get brain evolution data
+	// evolutionTree := treePathSearch(species, []string{}, treeData)
+
+	// brainEvolutionData := []map[string]interface{}{}
+
+	// speciesMu.Lock()
+	// for _, v := range evolutionTree{
+	// 	miteBrain := getBrain(speciesData[v].original.Nnet)
+	// 	brainEvolutionData = append(brainEvolutionData, map[string]interface{}{
+	// 		"name": getName(speciesData[v].original),
+	// 		"brain": miteBrain,
+	// 	})
+	// }
+	// speciesMu.Unlock()
+
+	// // Prepare a response
+	// data := map[string]interface{}{
+	// 	// Status:  "Success",
+	// 	// Details: fmt.Sprintf("Received message: %s with value: %d", requestData.Message, requestData.Value),
+	// 	"brain": miteBrain,
+	// 	"evolve": brainEvolutionData,
+	// }
+
+    // jsonData, err := json.Marshal(data)
+    // if err != nil {
+    //     log.Fatalf("Failed to marshal data: %v", err)
+    // }
+
+    // // Send data via POST
+    // resp, err := http.Post("http://localhost:8080/brain", "application/json", bytes.NewBuffer(jsonData))
+    // if err != nil {
+    //     log.Fatalf("Failed to send data: %v", err)
+    // }
+    // defer resp.Body.Close()
+
+    // if resp.StatusCode == http.StatusOK {
+    //     log.Println("Data sent successfully!")
+    // } else {
+    //     log.Printf("Failed to send data. Status: %v", resp.Status)
+    // }
+
+	// NOTE we do not need to lock because no proccesses should be running when this is called
+	gridLockMu.Lock()
+	species := gridOccupy[x][y]
+	gridLockMu.Unlock()
+
+	if species == nil {
+		fmt.Println("No species at position!")
+		return
+	}
+
+	fmt.Println(getName(species), x, y)
+    openBrowser("http://localhost:8000/brain.html?id=" + getName(species))
+}
+
+func brainHandler(w http.ResponseWriter, r *http.Request) {
     w.Header().Set("Access-Control-Allow-Origin", "*") // Allow any origin
     w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
+    w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+
+	// if r.Method == http.MethodOptions {
+	// 	w.WriteHeader(http.StatusOK) // Return 200 OK for OPTIONS requests
+	// 	return
+	// }
+	// if r.Method != http.MethodPost {
+	// 	http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
+	// 	return
+	// }
+
+	id := r.URL.Query().Get("id")
+	fmt.Println("species name", id)
+
+	speciesMu.Lock()
+	mite := speciesData[id].original
+	speciesMu.Unlock()
+	miteBrain := getBrain(mite.Nnet)
+
+	// get brain evolution data
+	evolutionTree := treePathSearch(id, []string{}, treeData)
+
+	brainEvolutionData := []map[string]interface{}{}
+
+	speciesMu.Lock()
+	for _, v := range evolutionTree{
+		miteBrain := getBrain(speciesData[v].original.Nnet)
+		brainEvolutionData = append(brainEvolutionData, map[string]interface{}{
+			"name": getName(speciesData[v].original),
+			"brain": miteBrain,
+		})
+	}
+	speciesMu.Unlock()
+
+	// Prepare a response
+	data := map[string]interface{}{
+		// Status:  "Success",
+		// Details: fmt.Sprintf("Received message: %s with value: %d", requestData.Message, requestData.Value),
+		"brain": miteBrain,
+		"evolve": brainEvolutionData,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+    json.NewEncoder(w).Encode(data)
+
+	// Decode the JSON request body into RequestData struct
+	// var requestData RequestData
+	// if err := json.NewDecoder(r.Body).Decode(&requestData); err != nil {
+	// 	http.Error(w, "Error decoding JSON", http.StatusBadRequest)
+	// 	return
+	// }
+
+	// Print received data
+	// fmt.Printf("Received data: %+v\n", requestData)
+	// openBrain(requestData.Value)
+
+	//get brain
+	// speciesMu.Lock()
+	// mite := speciesData[requestData.Value].original
+	// speciesMu.Unlock()
+	// miteBrain := getBrain(mite.Nnet)
+
+	// // get brain evolution data
+	// evolutionTree := treePathSearch(getName(mite), []string{}, treeData)
+
+	// brainEvolutionData := []map[string]interface{}{}
+
+	// speciesMu.Lock()
+	// for _, v := range evolutionTree{
+	// 	miteBrain := getBrain(speciesData[v].original.Nnet)
+	// 	brainEvolutionData = append(brainEvolutionData, map[string]interface{}{
+	// 		"name": getName(speciesData[v].original),
+	// 		"brain": miteBrain,
+	// 	})
+	// }
+	// speciesMu.Unlock()
+
+	// // Prepare a response
+	// data := map[string]interface{}{
+	// 	// Status:  "Success",
+	// 	// Details: fmt.Sprintf("Received message: %s with value: %d", requestData.Message, requestData.Value),
+	// 	"brain": miteBrain,
+	// 	"evolve": brainEvolutionData,
+	// }
+
+	// Encode response as JSON
+	// w.Header().Set("Content-Type", "application/json")
+	// if err := json.NewEncoder(w).Encode(data); err != nil {
+	// 	http.Error(w, "Error encoding JSON", http.StatusInternalServerError)
+	// }
+	//
+}
+
+
+// func openBrain(w http.ResponseWriter, r *http.Request) {
+// 	data := struct {
+// 		Message string
+// 		Value   int
+// 	}{
+// 		Message: "Hello from Go with localStorage",
+// 		Value:   42,
+// 	}
+
+// 	tmpl := template.New("js")
+// 	tmpl, err := tmpl.Parse(jsTemplate)
+// 	if err != nil {
+// 		http.Error(w, "Error parsing template", http.StatusInternalServerError)
+// 		return
+// 	}
+
+// 	// Execute the template with data
+// 	w.Header().Set("Content-Type", "text/html")
+// 	tmpl.Execute(w, data)
+// }
+
+func dataHandler(w http.ResponseWriter, r *http.Request) {
+    w.Header().Set("Access-Control-Allow-Origin", "*") // Allow any origin
+    w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
     w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
 
     if r.Method == http.MethodOptions {
@@ -173,7 +402,7 @@ func dataHandler(w http.ResponseWriter, r *http.Request) {
 		"species_pop": parsedSpecies,
 		"sick_data": sickData,
 		"brain_data": brainData,
-	} // Example of dynamic data
+	} // example of dynamic data
     w.Header().Set("Content-Type", "application/json")
     json.NewEncoder(w).Encode(data)
 }

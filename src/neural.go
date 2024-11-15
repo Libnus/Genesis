@@ -590,6 +590,9 @@ func calcNeuralPotential(indiv *Mite, nnet *NeuralNetwork) map[OutputNeuron]floa
 	however, once a neuron has been fired, it cannot be refired
 */
 func stepOrganism(indiv *Mite) {
+	if CURR_STEP - indiv.Birth >= 200{ // too old
+		indiv.Dead = true
+	}
 
 	if indiv.Dead{
 		return
@@ -597,7 +600,8 @@ func stepOrganism(indiv *Mite) {
 
 	netOutput := calcNeuralPotential(indiv, indiv.Nnet)
 
-	didMove := false
+	// didMove := false
+	indiv.didMove = false
 
 	// perform the actions for each output
 	// for each output neuron determine the neuron type and perform action
@@ -616,17 +620,17 @@ func stepOrganism(indiv *Mite) {
 
 			// y move
 			moveMite( indiv, indiv.X, newY )
-			didMove = true
+			indiv.didMove = true
 		case Mx:
 			newX := indiv.X +  int(output / math.Abs(output))
 
 			moveMite( indiv, newX, indiv.Y )
-			didMove = true
+			indiv.didMove = true
 		case My:
 			newY := indiv.Y +  int(output / math.Abs(output))
 
 			moveMite( indiv, indiv.X, newY )
-			didMove = true
+			indiv.didMove = true
 		case Ko:
 			//TODO in forward direction rather than just random
 			xOffset, yOffset := rand.Intn(3) - 1, rand.Intn(3) - 1
@@ -703,7 +707,7 @@ func stepOrganism(indiv *Mite) {
 	// if didMove {
 	// 	didMove = false
 	// }
-	if didMove {
+	if indiv.didMove {
 		indiv.Nutrition -= 0.05
 	}else { indiv.Nutrition += 0.1 }
 

@@ -27,13 +27,18 @@ type Game struct{
 	rpy bool
 	isReplay bool
 	maxStep int
+	mouseClicked   bool
+    mouseX, mouseY int
 }
+
+var GAME_PAUSED = false 
+var previousSpacePressed = false
 
 var CURR_GEN = 0
 var CURR_SICK = 0
 var PREV_INTERP = 0
 var CURR_KILL = 0
-var CURR_STEP = 1
+var CURR_STEP = 0
 var MAX_STEP = 300
 
 //var genData []opts.LineData
@@ -331,8 +336,36 @@ var AVG_BRAIN_SIZE = 0
 
 
 func (g *Game) Update() error {
+	spacePressed := ebiten.IsKeyPressed(ebiten.KeySpace)
 	//
+	if spacePressed && !previousSpacePressed {
+        if !GAME_PAUSED {
+            GAME_PAUSED = true
+        } else {
+            GAME_PAUSED = false
+        }
+    }
+	if ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft) {
+        // Get the current mouse position
+        x, y := ebiten.CursorPosition()
 
+        if !g.mouseClicked { // Only register a click if it wasn't already clicked
+            // fmt.Printf("Mouse clicked at: (%d, %d)\n", x/10, y/10)
+            g.mouseX, g.mouseY = x/10, y/10
+            g.mouseClicked = true // Register the click
+			openBrainBrowser(g.mouseX, g.mouseY)
+        }
+
+    } else {
+        g.mouseClicked = false // Reset the click state when mouse is released
+    }
+
+	previousSpacePressed = spacePressed
+	
+    // If paused, do nothing in update
+    if GAME_PAUSED {
+        return nil
+    }
 	gridLockMu.Lock()
 
 	if g.rpy{
@@ -479,7 +512,7 @@ func (g *Game) Update() error {
 					}
 
 					// less than absolute max age && has nutrition && not murdered
-					if CURR_STEP - organisms[mite].Birth < 200 && organisms[mite].Nutrition > 0.0 && !organisms[mite].Dead {
+					if organisms[mite].Nutrition > 0.0 && !organisms[mite].Dead {
 						*children = append(*children, organisms[mite])
 						// pass()
 					} else{
@@ -595,7 +628,6 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	// 	}
 	// }
 }
-
 func (g *Game) Layout(outsideWidth, outsideHeight int) (screenWidth, screenHeight int) {
 	return ROWS * 10, COLS * 10
 }

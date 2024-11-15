@@ -1,3 +1,8 @@
+-replays added 
+- minor bug fixes
+-input argument flags
+
+
 -mites no longer divide if murdered in the same step
 -genus and species name added
 -genome similarity test to create new species
@@ -6,3 +11,10 @@
 -sick deaths added to replay events
 -mutation rate increased
 -brains actually shrink and expand with mutation now
+
+-brain network frontend fixed
+-added temporal evolution of brain
+	-select species on map
+	-select species to view on evolution tree
+
+-new pause feature

@@ -296,16 +296,7 @@ func saveReplayToFile() error{
 
 }
 
-
-// outputs a brain to a file
-func outputBrain(nnet *NeuralNetwork) error{
-	file, err := os.Create("brain.json")
-	if err != nil {
-		fmt.Println("Error saving:", err)
-		return err
-	}
-	defer file.Close()
-
+func getBrain(nnet *NeuralNetwork) map[string]interface{}{
 	nodes := []BrainNodeJson{}
 	links := []BrainEdgeJson{}
 
@@ -334,6 +325,20 @@ func outputBrain(nnet *NeuralNetwork) error{
 		"nodes": nodes,
 		"links": links,
 	}
+
+	return data
+}
+
+// outputs a brain to a file
+func outputBrain(nnet *NeuralNetwork) error{
+	file, err := os.Create("brain.json")
+	if err != nil {
+		fmt.Println("Error saving:", err)
+		return err
+	}
+	defer file.Close()
+
+	data := getBrain(nnet)
 
 
 	encoder := json.NewEncoder(file)

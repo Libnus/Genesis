@@ -5,6 +5,7 @@ import (
 	"image/color"
 	// "fmt"
 	// "os"
+	"log"
 	// "time"
 )
 
@@ -13,8 +14,9 @@ type Mite struct {
 	Species string
 	Nnet *NeuralNetwork
 	Genome []string
+	didMove bool // did the mite move this step
 	Id int
-	X, Y int
+	X, prevX, Y, prevY int
 	Birth int
 	Nutrition float64
 	Dead bool // flag to check if the organism is dead
@@ -47,6 +49,7 @@ func generateMiteName(mite1, mite2 *Mite){
 		mite2.Genus = generateGenusName()
 		mite2.Species = generateSpeciesName()
 	} else if similarity < speciesThreshold{ // just new speices name
+		mite2.Genus = genus
 		mite2.Species = generateSpeciesName()
 	} else{
 		mite2.Genus = genus
@@ -221,7 +224,11 @@ func cellDivide(mite *Mite) *Mite {
 
 	speciesMu.Lock()
 	firstOrganism := speciesData[getName(mite)].original // get first organism in species
-	// if firstOrganism == nil {fmt.Println("here", speciesData[getName(mite)].num) }
+		// if firstOrganism == nil {
+		// return nil } // organism died while dividing
+	if speciesData[getName(mite)].num == 0{
+		log.Fatal("fatal error in cell divide, species extinct but dividng")
+	}
 	speciesMu.Unlock()
 	generateMiteName(firstOrganism, newMite)
 	red, green, blue := getIndivColor(getName(newMite))
@@ -289,6 +296,8 @@ func moveMite(indiv *Mite, x int, y int) {
 	gridMu[indiv.X][indiv.Y].Unlock()
 
 	gridOccupy[x][y] = indiv
+	indiv.prevX = indiv.X
+	indiv.prevY = indiv.Y
 	indiv.X, indiv.Y = x, y
 
 	gridMu[x][y].Unlock()

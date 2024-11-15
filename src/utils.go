@@ -37,7 +37,7 @@ func generateRandomGene() string {
 
 // takes in a genome, creates a copy, and mutates it
 func mutateGenome(genome []string) []string {
-	mutationRate := 0.0005 // mutationRate / 15000 for prob
+	mutationRate := 0.0001 // 0.0005 used previously mutationRate / 15000 for prob
 
 	expectedSwaps := mutationRate * float64(len(genome))
 	insertDeleteProbability := float64(expectedSwaps) / float64(len(genome))
@@ -125,7 +125,7 @@ func genomeSimilarity(arr1, arr2 []string) float64 {
 	}
 
 	// Calculate similarity percentage
-	similarity := (1.0 - float64(distance)/maxLen) * 100.0
+	similarity := (1.0 - float64(distance)/maxLen)
 	return similarity
 }
 
@@ -225,15 +225,78 @@ func signalHandler(rpy_flag bool){
 
 
 func generateGenusName() string{
-	genusRoots := []string{"Aero", "Crypto", "Neo", "Proto", "Hydro", "Pyro", "Thermo", "Xylo", "Lacto", "Phyllo", "Macro", "Micro"}
-	suffixes := []string{"us", "a", "um", "is", "os"}
+	genusRoots := []string{
+		"Aero", "Crypto", "Neo", "Proto", "Hydro", "Pyro", "Thermo", "Xylo", "Lacto", "Phyllo", "Macro", "Micro",
+		"Bio", "Anthro", "Cyano", "Dermo", "Gastro", "Hemo", "Lipo", "Meso", "Necto", "Osteo", "Paleo", "Ribo",
+		"Sapro", "Tecto", "Zymo", "Botano", "Geophyto", "Hydrato", "Phago", "Chloro", "Electro", "Geo", "Archo",
+		"Mega", "Neuro", "Poly", "Pseudo", "Rhizo", "Acantho", "Aero", "Alaio", "Algio", "Amio", "Amphelo",
+		"Ano", "Anthro", "Arco", "Bacillo", "Bary", "Blasto", "Brachy", "Bryo", "Calyco", "Cantho", "Cephalo",
+		"Characto", "Chondro", "Cirrho", "Clado", "Concho", "Dendro", "Diplo", "Dino", "Dysbio", "Endo", "Erythro",
+		"Etho", "Fibro", "Flavo", "Folio", "Fructo", "Galacto", "Glyco", "Granulo", "Helio", "Hemi", "Hepato",
+		"Herbo", "Herpo", "Hiero", "Histio", "Holo", "Homo", "Hypo", "Idio", "Intra", "Iso", "Karpo", "Kino",
+		"Lipo", "Logico", "Litho", "Lyso", "Mega", "Meio", "Melano", "Meristo", "Mesosto", "Meto", "Metro",
+		"Mikro", "Mono", "Morpho", "Muro", "Myco", "Naso", "Necro", "Nephro", "Oeno", "Olivo", "Oreo", "Ortho",
+		"Oxy", "Pachy", "Pantho", "Parano", "Pelago", "Penta", "Philo", "Phlebo", "Phreno", "Phyco", "Phyllo",
+		"Piro", "Plasto", "Pneumo", "Poeto", "Poly", "Proto", "Psilo", "Pseudo", "Pyrito", "Pyloro", "Rheo",
+		"Roto", "Sclero", "Serpento", "Spheno", "Spino", "Sporo", "Steno", "Stilbo", "Strato", "Stylo", "Tecto",
+		"Teleo", "Thermo", "Thyro", "Topo", "Toxo", "Tricho", "Tycho", "Ulto", "Vasco", "Ventro", "Verico",
+		"Volo", "Xylo", "Zoo", "Zygo", "Allo", "Ankylo", "Axi", "Boreno", "Calo", "Clavi", "Geno", "Mento",
+		"Planto", "Podo", "Scalo", "Vado", "Vibo", "Veloci", "Vento", "Acidi", "Anti", "Epizo", "Spatio", "Zona",
+		// ... add up to 1000 roots if necessary
+	}
+	suffixes := []string{
+		"us", "a", "um", "is", "os", "ae", "on", "eus", "ium", "ix", "yx", "inis", "rix", "erus", "alis", "ilis",
+		"ina", "ari", "atus", "ella", "essa", "esta", "etto", "iana", "ianus", "ico", "idus", "illo", "inella",
+		"inus", "ippa", "io", "aris", "ata", "eta", "ifex", "ix", "lita", "lora", "oris", "urra", "otta", "zoa",
+		"cela", "da", "ma", "rea", "ula", "eni", "ius", "ania", "arix", "mera", "pora", "theca", "stoma", "dera",
+		"fero", "rina", "ferax", "inis", "patha", "tora", "bata", "capa", "copia", "hama", "nea", "plasta", "cyma",
+		"ochora", "mantha", "tema", "gaster", "rhynchus", "vena", "olax", "pina", "ferus", "lemma", "odona", "nema",
+		"onoma", "zoma", "stoma", "podia", "necto", "crani", "phora", "nauta", "somia", "phorus", "dona", "toma",
+		"rhea", "dema", "croceus", "emera", "litho", "lora", "mus", "mura", "luta", "myra", "xera", "zona", "xita",
+		"phyta", "alix", "ilis", "orix", "cis", "dex", "nex", "lynx", "lura", "tix", "kora", "pyra", "vena", "pina",
+		"beta", "mina", "para", "palo", "xalis", "varo", "vora", "ixus", "laxis", "nica", "tius", "coris", "fira",
+		"lipa", "moda", "xira", "nyra", "cion", "ysis", "ylis", "yma", "ceps", "oxia", "gona", "spira", "aspis",
+		// ... add up to 1000 suffixes if necessary
+	}
 
 	return genusRoots[rand.Intn(len(genusRoots))] + suffixes[rand.Intn(len(suffixes))]
 }
 
 func generateSpeciesName() string{
-	speciesRoots := []string{"phagus", "tropus", "donta", "cera", "morpha", "soma", "ptera", "genes", "lithos", "derma", "carpa", "rhiza"}
-    suffixes := []string{"is", "a", "us", "um"}
+	speciesRoots := []string{
+		"phagus", "tropus", "donta", "cera", "morpha", "soma", "ptera", "genes", "lithos", "derma", "carpa", "rhiza",
+		"cephalus", "coccus", "cauda", "vorus", "crinus", "stoma", "thrix", "pleura", "nema", "pedis", "branchia",
+		"poda", "nectes", "theca", "pinna", "lepis", "ornis", "cyclus", "phyton", "gaster", "droma", "tylus",
+		"fagus", "mania", "chytra", "phyllus", "coccus", "zona", "bactra", "glossa", "cladus", "cera", "xylon",
+		"litha", "planta", "sphen", "tatus", "fera", "coris", "crota", "gena", "nida", "fila", "vicia", "domis",
+		"cotis", "botra", "alga", "flos", "thalma", "cinctus", "plana", "sterna", "tyla", "scelis", "trophos",
+		"eidos", "gonia", "blasta", "spondyla", "odon", "petra", "lytra", "pnoea", "opsida", "lepta", "saris",
+		"nemes", "patha", "thera", "critis", "echna", "therma", "baris", "rhodos", "colus", "thamus", "melia",
+		"drilus", "chirrus", "dira", "cetus", "nates", "opta", "culpa", "brya", "amphos", "perla", "opius",
+		"fuga", "stylis", "thyma", "ceps", "spiris", "carca", "galla", "plis", "phylis", "xyla", "sapis",
+		"vesca", "retis", "clytia", "tanos", "halla", "grana", "phonia", "trima", "typha", "spora", "tonos",
+		"era", "monia", "braca", "cula", "cincta", "lecta", "zona", "pha", "tina", "doxia", "triba", "fona",
+		"spila", "arza", "tylo", "brua", "sila", "cota", "xenia", "dynes", "fila", "aura", "thera", "cula",
+		"gana", "thyra", "pectra", "zyma", "pyra", "tera", "cura", "phila", "patha", "dyxa", "thonis", "mena",
+		"lis", "cyla", "sema", "nthea", "thyra", "sphex", "glycus", "oplo", "vaxa", "gma", "xura", "prina",
+		"colora", "phrea", "fera", "syntha", "lexa", "thama", "notha", "lapso", "tlexa", "arax", "corona",
+		// ... add up to 1000 species roots if needed
+	}
+	suffixes := []string{
+		"is", "a", "us", "um", "ix", "ae", "on", "eus", "ina", "atus", "ella", "ulus", "itas", "ida", "odes",
+		"eria", "ina", "ora", "ixa", "ala", "esta", "etta", "toma", "ella", "iella", "iana", "oidea", "myxa",
+		"ma", "ra", "ora", "isa", "yra", "thea", "tus", "xus", "ess", "ata", "gma", "olia", "lyta", "mixa",
+		"nata", "ara", "eta", "yla", "loma", "yna", "ium", "antha", "oza", "tera", "ylus", "xera", "mora",
+		"yx", "othia", "ula", "ana", "yra", "yna", "lax", "alta", "doma", "rota", "cora", "ithia", "etra",
+		"tella", "ella", "gonia", "zela", "xeus", "xus", "tosa", "nia", "lica", "sata", "rata", "ceris",
+		"pylus", "xuma", "coma", "cola", "stra", "dyla", "melia", "ynta", "xeta", "lyra", "dola", "xula",
+		"veria", "pnea", "zala", "dota", "gora", "tana", "vosa", "varia", "retta", "riona", "lona", "sena",
+		"nema", "plia", "vela", "xesa", "zexa", "mixa", "bina", "gama", "saxa", "sema", "xina", "vina",
+		"nella", "gila", "vella", "xeria", "plina", "trela", "mana", "tyra", "piola", "xira", "lima", "filla",
+		"vexa", "gusa", "tima", "xana", "nara", "fala", "zuma", "lexa", "zeta", "baxa", "vena", "pora", "tura",
+		"cora", "dira", "xina", "zella", "pora", "zona", "lena", "tora", "vixa", "mexia", "paria", "nixa", "resa",
+		// ... add up to 1000 suffixes if needed
+	}
 
 	return speciesRoots[rand.Intn(len(speciesRoots))] + suffixes[rand.Intn(len(suffixes))]
 }

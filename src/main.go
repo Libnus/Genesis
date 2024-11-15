@@ -239,6 +239,7 @@ func main() {
     // }()
 
 	go func(){
+		http.HandleFunc("/brain", brainHandler)
 		http.HandleFunc("/data", dataHandler)
 		log.Fatal(http.ListenAndServe(":8080", nil))
 	}()
