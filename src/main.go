@@ -13,6 +13,7 @@ import (
 	"image/color"
 	// "strconv"
 	"net/http"
+	_ "net/http/pprof"
 
 	"github.com/hajimehoshi/ebiten/v2"
 
@@ -83,6 +84,7 @@ to make new connections and delete unused ones (for allowing the neural network 
 var ROWS = 128
 var COLS = 128
 var MITE_ID = 0
+var miteIdMu sync.Mutex
 
 var sigChan = make(chan os.Signal, 1)
 
@@ -129,22 +131,38 @@ func createOccupancyGrid(rows int, cols int){
 }
 
 var rpy_flag *bool
+var saveLastStep *bool
 
 func main() {
 
+	go func() {
+		// Start the HTTP server for pprof at :6060
+		http.ListenAndServe(":6060", nil)
+	}()
     // Notify the channel on SIGINT and SIGTERM signals
     signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 
 	var draw = flag.Bool("draw", true, "Enable or disable drawing")
 	var seed = flag.Int64("seed", 1125, "help message for flag n")
 	var loadReplay = flag.Bool("load_replay", false, "load a replay from organisms.rpy")
+	var loadFromReplay = flag.Bool("load_from_replay", false, "start a sim from the last step of a replay")
+	saveLastStep = flag.Bool("save_last", false, "saves only the last step of sim. Still saves event data")
 
 	rpy_flag = flag.Bool("replay", false, "replay events")
 	var maxStep = flag.Int("max_step", 0, "maximum number of steps to simulate")
 	var brain = flag.Bool("brain", false, "fetches a brain from a replay")
 	flag.Parse()
 
-	fmt.Println(*brain)
+
+	if *loadFromReplay{
+		// *loadReplay = true
+		*rpy_flag = true
+	}
+
+	if *saveLastStep{
+		*rpy_flag = true
+		*loadReplay = false
+	}
 
 	if *brain{
 		fmt.Println("getting a brain")
@@ -159,8 +177,8 @@ func main() {
 		initReplay()
 		*rpy_flag = false
 		loadReplayFromFile("organisms.rpy")
-
 	}
+
 
 	// error checking
 	 // if len(os.Arg) > 1 {
@@ -174,7 +192,7 @@ func main() {
     //     rand.Seed(time.Now().UnixNano())
     // }
 
-	game := &Game{drawEnabled: *draw, rpy: *rpy_flag, isReplay: *loadReplay, maxStep: *maxStep}
+	game := &Game{drawEnabled: *draw, saveLast: *saveLastStep, rpy: *rpy_flag, isReplay: *loadReplay, maxStep: *maxStep}
 
 
 	createOccupancyGrid(ROWS, COLS)
@@ -196,38 +214,110 @@ func main() {
 		initReplay()
 	}
 
+	// mite := createRandomMite(100, 0)
 
-	if !*loadReplay{
+	// return
+
+
+	if !*loadReplay && !*loadFromReplay{
 		for i := 0; i < 1000; i++{
 			mite := createRandomMite(100, i)
 			// generateMiteName(mite, nil)
 			organisms = append(organisms, mite)
-			addSpecies(mite)
+
+			treeNode := treeInsert("root", getName(mite), colorToHex(mite.Color))
+			addSpecies(mite, treeNode)
 
 			if *rpy_flag {
-				//replay.Events[0] = append(replay.Events[0], createEvent(Birth, nil, mite))
 				addEvent(Birth, nil, mite)
 			}
 
-			treeInsert("root", getName(mite), colorToHex(mite.Color), treeData)
 		}
+	} else if *loadFromReplay{
+		fmt.Println("laoding")
+		loadReplayFromFile("organisms.rpy")
+		//gridOccupy = replay.replayGrid[0]
+		step := 0
+		if len(replay.ReplayGrid) > 1{ // construct event data
+			for step, _ = range replay.ReplayGrid{
+				fmt.Println("event logging wokring", step)
+				for _, event := range replay.Events[step] {
+					organism := replay.Organisms[event.Source]
+
+					if event.Type == Birth{
+						// CURR_POP++
+						//
+						target := replay.Organisms[event.Target]
+
+						var treeNode *TreeNode
+						if organism != nil{
+							treeNode = treeInsert(getName(organism), getName(target), colorToHex(target.Color))
+						} else{
+							treeNode = treeInsert("root", getName(target), colorToHex(target.Color))
+						}
+						addSpecies(target, treeNode)
+						MITE_ID++
+					} else if event.Type == Kill {
+						addKill()
+					} else if event.Type == Death {
+						// CURR_POP--
+						removeSpecies(organism)
+					}
+				}
+			}
+		}
+		CURR_STEP =  step
+
+		for i, _ := range replay.ReplayGrid[len(replay.ReplayGrid)-1]{
+			for j, pos := range replay.ReplayGrid[len(replay.ReplayGrid)-1][i]{
+				if pos == -1 {
+					gridOccupy[i][j] = nil
+					continue
+				}
+				mite := replay.Organisms[pos]
+				fmt.Println(mite.Dead, mite.Birth, CURR_STEP, getName(mite))
+				return
+				// mite := createMite(replay.Organisms[pos].Genome)
+				// mite.Id = pos
+
+				// // NOTE quick fix from bug identified in indiv.CellDivide
+				// if _, ok := speciesData[getName(mite)]; !ok {
+				// 	continue
+				// }
+
+				organisms = append(organisms, mite)
+				gridOccupy[i][j] = mite
+
+
+				if len(replay.ReplayGrid) == 1{
+					addSpecies(replay.Organisms[pos], treeData)
+				}
+			}
+		}
+		fmt.Println("starting from replay step:", CURR_STEP)
 	}
 
+	// ============== TESTING
+	// mite1 := organisms[0]
+	// mite2 := mite1
+	// var mite2 *Mite
 
 	// genome1 := organisms[0].Genome
 	// genome2 := genome1
 
-	// similarity := compareGenomes(genome1, genome2)
+	// similarity := 0.0
+	// similarity = genomeSimilarity(mite1, mite2) // comparing same mite
+	// fmt.Printf("%d   Similarity: %.2f%%\n", -1, similarity*100)
+	// // return
 
 	// for i := range 100 {
-	// 	genome2 = mutateGenome(genome2)
-	// 	similarity := genomeSimilarity(genome1, genome2)
-	// 	fmt.Printf("%d   Similarity: %.2f%%\n", i, similarity)
+	// 	mite2 = createMite(mutateGenome(mite2.Genome))
+	// 	similarity = genomeSimilarity(mite1, mite2)
+	// 	fmt.Printf("%d   Similarity: %.2f%%\n", i, similarity*100)
 	// }
 
 
-	// // fmt.Printf("Genome similarity: %.2f%%\n", similarity)
-	// fmt.Println(len(genome1), len(genome2))
+	// fmt.Printf("Genome similarity: %.2f%%\n", similarity*100)
 	// return
 
 	// graphing / logging
@@ -244,16 +334,14 @@ func main() {
 		log.Fatal(http.ListenAndServe(":8080", nil))
 	}()
 
-	go signalHandler(*rpy_flag)
+	go signalHandler(*rpy_flag, *saveLastStep)
 
 
 	if *draw {
         ebiten.SetMaxTPS(60) // Sync TPS with FPS if drawing
+    } else {
+        ebiten.SetMaxTPS(10000) // Run at maximum TPS if drawing is disabled
     }
-
-	// else {
-    //     ebiten.SetMaxTPS(0) // Run at maximum TPS if drawing is disabled
-    // }
 
 	ebiten.SetWindowSize(ROWS*5, COLS*5)
 	ebiten.SetWindowTitle("Gen 0")

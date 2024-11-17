@@ -30,6 +30,7 @@ type PopDataPoint struct{
 	num int
 	original *Mite
 	color string
+	treeNode *TreeNode
 }
 
 type RequestData struct {
@@ -91,7 +92,7 @@ func appendGenData(gen int){
 }
 
 
-func addSpecies(species *Mite){
+func addSpecies(species *Mite, treeNode *TreeNode){
 	speciesMu.Lock()
 	if data, ok := speciesData[getName(species)]; ok {
         // Key exists, increment the num field
@@ -103,6 +104,7 @@ func addSpecies(species *Mite){
             num:   1,
 			original: species,
             color: colorToHex(species.Color), // Example color
+			treeNode: treeNode,
         }
         // fmt.Println("added new species", speciesData[getName(species)])
     }
@@ -156,25 +158,33 @@ func treePathSearch(searchItem string, currPath []string, node *TreeNode) []stri
 	return nil
 }
 
-func treeInsert(parent string, child string, color string, node *TreeNode) bool{
-	if node.Name == parent{
-		newSpecies := TreeNode {
-			Name: child,
-			Color: color,
-			Children: []*TreeNode{},
-		}
+func treeInsert(parent string, child string, color string) *TreeNode{
 
-		node.Children = append(node.Children, &newSpecies)
-		return true
+	parentNode := treeData
+	if parent != "root"{
+		parentNode = speciesData[parent].treeNode
 	}
 
-	for _, next := range node.Children{
-		if treeInsert(parent, child, color, next){
-			return true
-		}
+	newSpecies := &TreeNode {
+		Name: child,
+		Color: color,
+		Children: []*TreeNode{},
 	}
+	parentNode.Children = append(parentNode.Children, newSpecies)
+	return newSpecies
+	// if node.Name == parent{
 
-	return false
+	// 	node.Children = append(node.Children, &newSpecies)
+	// 	return true
+	// }
+
+	// for _, next := range node.Children{
+	// 	if treeInsert(parent, child, color, next){
+	// 		return true
+	// 	}
+	// }
+
+	// return false
 }
 
 func openBrowser(url string) {
@@ -282,12 +292,21 @@ func brainHandler(w http.ResponseWriter, r *http.Request) {
 	brainEvolutionData := []map[string]interface{}{}
 
 	speciesMu.Lock()
-	for _, v := range evolutionTree{
+	var prev = speciesData[evolutionTree[0]].original
+	fmt.Println("Brain similarity test for", id)
+	for i, v := range evolutionTree{
 		miteBrain := getBrain(speciesData[v].original.Nnet)
 		brainEvolutionData = append(brainEvolutionData, map[string]interface{}{
 			"name": getName(speciesData[v].original),
 			"brain": miteBrain,
 		})
+
+		if i > 0{
+			similarity := genomeSimilarity(prev, speciesData[v].original)
+			fmt.Println("similarity between", getName(prev), "and", getName(speciesData[v].original), similarity*100)
+		}
+		// prev = speciesData[v].original
+
 	}
 	speciesMu.Unlock()
 
@@ -301,6 +320,13 @@ func brainHandler(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
     json.NewEncoder(w).Encode(data)
+
+
+	// brain similarity test
+	// prev := brainEvolutionDta[]
+	// for i, brain := brainEvolutionData{ // for each species
+	// 	if i == 0 {continue}
+	// }
 
 	// Decode the JSON request body into RequestData struct
 	// var requestData RequestData

@@ -43,7 +43,8 @@ func generateMiteName(mite1, mite2 *Mite){
 	genus := mite1.Genus
 	species := mite1.Species
 
-	similarity := genomeSimilarity(mite1.Genome, mite2.Genome)
+	similarity := genomeSimilarity(mite1, mite2)
+	// fmt.Printf("genome similarity %.2f%%\n", similarity*100.0)
 
 	if similarity < genusThreshold{ // make new genus and name
 		mite2.Genus = generateGenusName()
@@ -60,7 +61,9 @@ func generateMiteName(mite1, mite2 *Mite){
 // NOTE:: iterative
 func createRandomMite(numGenes int, id int) *Mite {
 	genome := createGenome(numGenes, int64(rand.Int()))
-	nnet, _ := processGenome(genome)
+	nnet, _ := processGenome(&genome)
+
+	// fmt.Println("NEW LENGTH", len(genome))
 
 	var x, y = 0, 0
 	for{
@@ -124,7 +127,7 @@ func randomizePos(mite *Mite) {
 }
 
 func createMite(genome []string) *Mite {
-	nnet, _ := processGenome(genome)
+	nnet, _ := processGenome(&genome)
 
 	// TODO move to get random color function
 	// red := uint8(rand.Intn(256))
@@ -147,6 +150,40 @@ func createMite(genome []string) *Mite {
 	MITE_ID++
 
 	generateMiteName(newMite, nil)
+	red, green, blue := getIndivColor(getName(newMite))
+	alpha := 255
+
+	newMite.Color = color.RGBA{uint8(red),uint8(green),uint8(blue),uint8(alpha)}
+
+	randomizePos(newMite)
+	return newMite
+}
+func createMiteEmpty(genome []string, x, y int) *Mite {
+	nnet, _ := processGenome(&genome)
+
+	// TODO move to get random color function
+	// red := uint8(rand.Intn(256))
+	// green := uint8(rand.Intn(256))
+	// blue := uint8(rand.Intn(256))
+	// alpha := uint8(rand.Intn(256))
+
+
+	newMite := &Mite{
+		Nnet: nnet,
+		Genome: genome,
+		Id: MITE_ID, // TODO fix lol
+		X: x,
+		Y: y,
+		Nutrition: 1.0,
+		Birth: CURR_STEP,
+		Dead: false,
+	}
+
+	miteIdMu.Lock()
+	MITE_ID++
+	miteIdMu.Unlock()
+
+	// generateMiteName(newMite, nil)
 	red, green, blue := getIndivColor(getName(newMite))
 	alpha := 255
 
@@ -205,14 +242,15 @@ func cellDivide(mite *Mite) *Mite {
 
 
 	genome := mutateGenome(mite.Genome)
-	nnet, _ := processGenome(genome)
+	nnet, _ := processGenome(&genome)
 
 
+	// newMite := createMiteEmpty(genome, newX, newY)
 
 	newMite := &Mite{
 		Nnet: nnet,
 		Genome: genome,
-		Id: rand.Intn(10000), // TODO fix lol
+		Id: MITE_ID, // TODO fix lol
 		X: newX,
 		Y: newY,
 		Birth: CURR_STEP,
@@ -221,20 +259,35 @@ func cellDivide(mite *Mite) *Mite {
 		// Color: color.RGBA{uint8(red),uint8(green),uint8(blue),uint8(alpha)},
 	}
 
+	miteIdMu.Lock()
+	MITE_ID++
+	miteIdMu.Unlock()
+
 
 	speciesMu.Lock()
 	firstOrganism := speciesData[getName(mite)].original // get first organism in species
-		// if firstOrganism == nil {
-		// return nil } // organism died while dividing
+		if firstOrganism == nil {
+		return nil } // organism died while dividing
+	speciesMu.Unlock()
 	if speciesData[getName(mite)].num == 0{
 		log.Fatal("fatal error in cell divide, species extinct but dividng")
+		// fmt.Println(" error in cell divide, species extinct but dividng", firstOrganism)
+		// data := speciesData[getName(mite)]
+		// data.num++
+		// speciesData[getName(mite)] = data
+		// speciesMu.Unlock()
+		//
+	// 	mite.Dead = true // just kill it ;) problem solved ;) TODO fix whatever causes this bug
+	// 	// 														// creatures are null when loading from replay
+	// 	gridMu[ newX ][ newY ].Unlock()
+	// 	return nil
 	}
-	speciesMu.Unlock()
 	generateMiteName(firstOrganism, newMite)
 	red, green, blue := getIndivColor(getName(newMite))
 	alpha := 255
 	newMite.Color = color.RGBA{uint8(red),uint8(green),uint8(blue),uint8(alpha)}
 
+	mite.Nutrition -= 0.5
 
 	gridOccupy[ newX ][ newY ] = newMite
 

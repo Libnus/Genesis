@@ -35,6 +35,7 @@ type Replay struct{
 	ReplayGrid [][][]int
 	Organisms map[int]*Mite
 	Events map[int][]Event
+	CurrStep int
 }
 
 var replayMu sync.Mutex
@@ -201,7 +202,7 @@ func saveReplayToFile() error{
 	gridLockMu.Lock()
 	// Perform any cleanup or shutdown tasks here
 	fmt.Println("saving replay...")
-	filename := "organisms.rpy"
+	filename := "organisms1.rpy"
 	// if err := saveToFile(filename, replay); err != nil {
 	// 	return err
 	// }

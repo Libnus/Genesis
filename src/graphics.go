@@ -26,6 +26,7 @@ type Game struct{
 	drawEnabled bool
 	rpy bool
 	isReplay bool
+	saveLast bool
 	maxStep int
 	mouseClicked   bool
     mouseX, mouseY int
@@ -368,7 +369,7 @@ func (g *Game) Update() error {
     }
 	gridLockMu.Lock()
 
-	if g.rpy{
+	if g.rpy && !g.saveLast {
 		saveGrid();
 	}
 
@@ -438,12 +439,13 @@ func (g *Game) Update() error {
 				CURR_POP++
 				target := replay.Organisms[event.Target]
 
+				var treeNode *TreeNode
 				if organism != nil{
-					treeInsert(getName(organism), getName(target), colorToHex(target.Color), treeData)
+					treeNode = treeInsert(getName(organism), getName(target), colorToHex(target.Color))
 				} else{
-					treeInsert("root", getName(target), colorToHex(target.Color), treeData)
+					treeNode = treeInsert("root", getName(target), colorToHex(target.Color))
 				}
-				addSpecies(target)
+				addSpecies(target, treeNode)
 			} else if event.Type == Kill {
 				addKill()
 			} else if event.Type == Death {
@@ -530,22 +532,24 @@ func (g *Game) Update() error {
 
 						if newMite != nil {
 							*children = append(*children, newMite)
-							addSpecies(newMite)
 
 							births++
+							var treeNode *TreeNode
 
 							if g.rpy{
 								addEvent(Birth, organisms[mite], newMite)
 							}
 
 							if(organisms[mite].Color != newMite.Color){
-								treeInsert(getName(organisms[mite]), getName(newMite), colorToHex(newMite.Color), treeData)
+								treeNode = treeInsert(getName(organisms[mite]), getName(newMite), colorToHex(newMite.Color))
 							}
 
+							addSpecies(newMite, treeNode)
+
+							organisms[mite].Nutrition = 0.1
 						}
 
 						updateMu.Unlock()
-						organisms[mite].Nutrition = 0.1
 					}
 				}
 			}(startSlice, endSlice, &children, &updateMu)

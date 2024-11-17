@@ -299,7 +299,7 @@ func addWire(nnet *NeuralNetwork, sourceType int, sourceId int, destType int, de
 
    will return nil if no error in reading genome otherwise returns the error
 */
-func processGenome(genome []string) (*NeuralNetwork, error) {
+func processGenome(genome *[]string) (*NeuralNetwork, error) {
 	// process the number of internal neurons
 	// numInternal, err := strconv.ParseInt(genome[0], 16, 64)
 	// if err != nil {
@@ -309,23 +309,26 @@ func processGenome(genome []string) (*NeuralNetwork, error) {
 
 	// create a new network
 	newNetwork := new(NeuralNetwork)
+	processedGenome := []string{}
 	// newNetwork.numInternal = numInternal
 	newNetwork.NetworkMap = make(map[int][2][]*Wire)
 	newNetwork.NodeMap = make(map[int]*Neuron)
 	newNetwork.InputNeurons = []int{}
 
+	usedWires := make(map[int]map[int]bool) // keep track of connections used
 
-	for i := 0; i < len(genome); i++ {
+	for i := 0; i < len(*genome); i++ {
 		// fmt.Printf("\n\n[ GENEOTRON ] Processing gene %d\n", i)
 
-		geneInt, err := strconv.ParseUint(genome[i], 16, 64)
+		geneInt, err := strconv.ParseUint((*genome)[i], 16, 64)
 		if err != nil {
 			fmt.Printf("[ ERR ] couldn't parse genome! %s\n", err)
 			fmt.Println()
-			fmt.Println(genome[i])
+			fmt.Println((*genome)[i])
 			os.Exit(1)
 		}
 		gene := fmt.Sprintf("%032b", geneInt)
+		// fmt.Println("[G-Tron] gene is", gene)
 
 		// aquire the sourceId by modding the value parsed by the number of genes
 		// we mod to allow any bit in the gene to be modified through mutation
@@ -349,8 +352,6 @@ func processGenome(genome []string) (*NeuralNetwork, error) {
 			sourceType = int(InternalType)
 		}
 
-		// add the source neuron
-		addNeuron(newNetwork, sourceId, sourceType)
 
 		destType, _ := strconv.Atoi(string(gene[8]))
 		// fmt.Println(string(gene))
@@ -375,6 +376,13 @@ func processGenome(genome []string) (*NeuralNetwork, error) {
 			destType = int(InternalType)
 		}
 
+		if _, ok := usedWires[sourceId][destId]; ok{
+			// fmt.Println("[ G-TRON ] Wire used! MOVING ON")
+			continue
+		}
+
+		// add the source neuron
+		addNeuron(newNetwork, sourceId, sourceType)
 		// add the dest neuron
 		addNeuron(newNetwork, destId, destType)
 
@@ -384,10 +392,20 @@ func processGenome(genome []string) (*NeuralNetwork, error) {
 		weight := float64(weightInt) / float64(8192) // 8192 (creates the range -4.0 to 4.0)
 
 		// fmt.Println("[ G-TRON ] Wire weight is", weight)
+		// fmt.Println()
 
 		addWire( newNetwork, sourceType, sourceId, destType, destId, weight )
-	}	
+		processedGenome = append(processedGenome, (*genome)[i])
 
+		if _, ok := usedWires[sourceId]; !ok{
+			usedWires[sourceId] = make(map[int]bool)
+		}
+
+		usedWires[sourceId][destId] = true
+	}
+
+	*genome = processedGenome
+	// fmt.Println("NEW LENGTH INSIDE PROCESS", len(processedGenome))
 	return newNetwork, nil
 }
 
@@ -708,7 +726,10 @@ func stepOrganism(indiv *Mite) {
 	// 	didMove = false
 	// }
 	if indiv.didMove {
-		indiv.Nutrition -= 0.05
-	}else { indiv.Nutrition += 0.1 }
+		indiv.Nutrition -= 0.005
+	}else {
+		indiv.Nutrition += 0.05
+		// indiv.Nutrition += 0.0
+	}
 
 }

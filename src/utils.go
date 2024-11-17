@@ -4,10 +4,12 @@ import (
 	// "reflect"
 	"fmt"
 	"math/rand"
-	"encoding/csv"
+	// "encoding/csv"
 	"image/color"
 	"os"
+	"sync"
 	"strconv"
+	// "log"
 
 	"crypto/sha256"
 	"math"
@@ -37,7 +39,7 @@ func generateRandomGene() string {
 
 // takes in a genome, creates a copy, and mutates it
 func mutateGenome(genome []string) []string {
-	mutationRate := 0.0001 // 0.0005 used previously mutationRate / 15000 for prob
+	mutationRate := 0.0001 //0.0001 // 0.0005 used previously mutationRate / 15000 for prob
 
 	expectedSwaps := mutationRate * float64(len(genome))
 	insertDeleteProbability := float64(expectedSwaps) / float64(len(genome))
@@ -114,79 +116,140 @@ func min(a, b, c int) int {
 	return int(math.Min(float64(a), math.Min(float64(b), float64(c))))
 }
 
+func genomeSimilarity(mite1, mite2 *Mite) float64{
+	matches := 0.0 // number of matching connections
+	var matchMu sync.Mutex
+
+	nnet1 := mite1.Nnet
+	nnet2 := mite2.Nnet
+
+	var wg sync.WaitGroup
+	for nodeHash, connections := range nnet1.NetworkMap {
+
+		// check if node even exists in nnet2
+		_, ok := nnet2.NodeMap[nodeHash]
+		if !ok { continue }
+
+		wg.Add(1)
+		go func(nodeHash int, connections [2][]*Wire, matchesMu *sync.Mutex){
+			defer wg.Done()
+
+			// create set of connections to check nnet2 for
+			connectionsToCheck := make(map[int]float64)
+
+			// loop over the outgoing connections in nnet1 check for existence in nnet2
+			for _, wire := range connections[0]{
+				// fmt.Println(nodeHash, "to", wire.Destination, wire.Weight)
+				// matchMu.Lock()
+				connectionsToCheck[wire.Destination] = wire.Weight
+				// matchMu.Unlock()
+			}
+
+			// fmt.Println("looping over network 2")
+			// loop over nnet2 wires checking if destination exists
+			for _, wire := range nnet2.NetworkMap[nodeHash][0]{
+				if val, ok := connectionsToCheck[wire.Destination]; ok{ // if the dest is a destination in nnet1
+					matchMu.Lock()
+					matches += 1.0 / (1.0 + 0.0 * math.Abs(val - wire.Weight))
+
+					// looped+=1
+					// fmt.Println( 1.0 / (1.0 + math.Abs(val - wire.Weight)), nodeHash, val, wire.Destination, wire.Weight)
+					// if 1.0 / (1.0 + math.Abs(val - wire.Weight)) != 1.0 {
+					// 	log.Fatal("NOT MATCH", wire, nodeHash, wire.Destination, val)
+					// }
+					matchMu.Unlock()
+				}
+			}
+		}(nodeHash, connections, &matchMu)
+	}
+	wg.Wait()
+
+	// fmt.Println("mathces", matches, len(mite1.Genome), "looped", looped)
+
+	return matches / float64(max(len(mite1.Genome), len(mite2.Genome)))
+}
+
+
 // Similarity calculates the similarity as a percentage based on Levenshtein distance
-func genomeSimilarity(arr1, arr2 []string) float64 {
-	distance := LevenshteinDistance(arr1, arr2)
-	maxLen := math.Max(float64(len(arr1)), float64(len(arr2)))
+// func genomeSimilarity(arr1, arr2 []string) float64 {
+// 	distance := LevenshteinDistance(arr1, arr2)
+// 	maxLen := math.Max(float64(len(arr1)), float64(len(arr2)))
 
-	// If both arrays are empty, they are identical
-	if maxLen == 0 {
-		return 100.0
-	}
+// 	// If both arrays are empty, they are identical
+// 	if maxLen == 0 {
+// 		return 100.0
+// 	}
 
-	// Calculate similarity percentage
-	similarity := (1.0 - float64(distance)/maxLen)
-	return similarity
-}
+// 	// Calculate similarity percentage
+// 	similarity := (1.0 - float64(distance)/maxLen)
+// 	return similarity
+// }
 
-func extractEdgeList(nnet *NeuralNetwork) error {
-	file, err := os.Create("neural_output.brain")
-	if err != nil {
-		fmt.Println("Unable to create output neural network file:", err)
-		return err
-	}
-	defer file.Close()
+// func extractEdgeList(nnet *NeuralNetwork) error {
+// 	file, err := os.Create("neural_output.brain")
+// 	if err != nil {
+// 		fmt.Println("Unable to create output neural network file:", err)
+// 		return err
+// 	}
+// 	defer file.Close()
 
-	writer := csv.NewWriter(file)
+// 	writer := csv.NewWriter(file)
 
-	neuralCsvData := [][]string{
-		{"source", "target", "value", "color1", "color2"},
-	}
+// 	neuralCsvData := [][]string{
+// 		{"source", "target", "value", "color1", "color2"},
+// 	}
 
-	for nodeHash, _ := range nnet.NetworkMap {
-		for _, outgoingEdge := range nnet.NetworkMap[nodeHash][0] {
-			newEntry := []string{}
+// 	for nodeHash, _ := range nnet.NetworkMap {
+// 		for _, outgoingEdge := range nnet.NetworkMap[nodeHash][0] {
+// 			newEntry := []string{}
 
-			inputNode := nnet.NodeMap[outgoingEdge.Source]
-			newEntry = append(newEntry, getNeuronString(inputNode))
-			inputColor := neuronGetColor(inputNode)
+// 			inputNode := nnet.NodeMap[outgoingEdge.Source]
+// 			newEntry = append(newEntry, getNeuronString(inputNode))
+// 			inputColor := neuronGetColor(inputNode)
 
-			destNode := nnet.NodeMap[outgoingEdge.Destination]
-			newEntry = append(newEntry, getNeuronString(destNode))
-			destColor := neuronGetColor(destNode)
+// 			destNode := nnet.NodeMap[outgoingEdge.Destination]
+// 			newEntry = append(newEntry, getNeuronString(destNode))
+// 			destColor := neuronGetColor(destNode)
 
-			weight := fmt.Sprintf("%f", outgoingEdge.Weight)
-			newEntry = append(newEntry, weight)
+// 			weight := fmt.Sprintf("%f", outgoingEdge.Weight)
+// 			newEntry = append(newEntry, weight)
 
-			newEntry = append(newEntry, inputColor)
-			newEntry = append(newEntry, destColor)
+// 			newEntry = append(newEntry, inputColor)
+// 			newEntry = append(newEntry, destColor)
 
-			neuralCsvData = append(neuralCsvData, newEntry)
+// 			neuralCsvData = append(neuralCsvData, newEntry)
 
-		}
-	}
+// 		}
+// 	}
 
-	for _, wire := range neuralCsvData {
-		if err := writer.Write(wire); err != nil {
-			fmt.Println("Error writing wire!", err)
-			return err
-		}
-	}
+// 	for _, wire := range neuralCsvData {
+// 		if err := writer.Write(wire); err != nil {
+// 			fmt.Println("Error writing wire!", err)
+// 			return err
+// 		}
+// 	}
 
-	writer.Flush()
+// 	writer.Flush()
 
-	if err := writer.Error(); err != nil{
-		fmt.Println("Error flushing output", err)
-		return err
-	}
-	return nil
-}
+// 	if err := writer.Error(); err != nil{
+// 		fmt.Println("Error flushing output", err)
+// 		return err
+// 	}
+// 	return nil
+// }
 
-func signalHandler(rpy_flag bool){
+func signalHandler(rpy_flag bool, saveLastStep bool){
 	// Block until a signal is received
 	sig := <-sigChan
 
 	if rpy_flag {
+		if saveLastStep {
+			saveGrid()
+			// fmt.Println("grid length for repaly:", len(replay.ReplayGrid))
+		}
+
+		replay.CurrStep = CURR_STEP
+
 		fmt.Println("\nReceived signal:", sig)
 		// fmt.Println(evolutionTree[0].Children)
 
