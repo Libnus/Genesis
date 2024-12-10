@@ -1,0 +1,113 @@
+
+
+
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Evolution Tree</title>
+  <script src="https://d3js.org/d3.v6.min.js"></script>
+<style>
+    /* Make the chart container scrollable horizontally */
+    /* #tree-chart-container { */
+    /*     overflow: scroll; */
+    /*     width: 1400px; */
+    /*   /\* height: 500px; /\\* Set a fixed height, adjust as needed *\\/ *\/ */
+    /*   border: 1px solid #ccc; */
+    /* } */
+  </style>
+</head>
+<body>
+    <div id="tree-chart"></div>
+  <script>
+    async function fetchData() {
+      try {
+        const response = await fetch("http://localhost:8080/data");
+        if (!response.ok) throw new Error("Network response was not ok");
+        const data = await response.json();
+        return data;
+      } catch (error) {
+        console.error("Error fetching data:", error);
+      }
+    }
+
+function renderTreeChart(data) {
+const width = 2000;
+  const height = width;
+  const cx = width *0.5; // adjust as needed to fit
+  const cy = height*0.5; // adjust as needed to fit
+  const radius = width;
+
+  // Create a radial tree layout. The layout’s first dimension (x)
+  // is the angle, while the second (y) is the radius.
+  const tree = d3.tree()
+      .size([2 * Math.PI, radius])
+      .separation((a, b) => (a.parent == b.parent ? 1 : 2) / a.depth);
+
+  // Sort the tree and apply the layout.
+  const root = tree(d3.hierarchy(data)
+      .sort((a, b) => d3.ascending(a.data.name, b.data.name)));
+
+  // Creates the SVG container.
+  const svg = d3.create("svg")
+      .attr("width", width)
+      .attr("height", height)
+      .attr("viewBox", [-cx, -cy, width, height])
+      .attr("style", "width: 100%; height: auto; font: 10px sans-serif;");
+
+  // Append links.
+  svg.append("g")
+      .attr("fill", "none")
+      .attr("stroke", "#555")
+      .attr("stroke-opacity", 0.4)
+      .attr("stroke-width", 1.5)
+    .selectAll()
+    .data(root.links())
+    .join("path")
+      .attr("d", d3.linkRadial()
+          .angle(d => d.x)
+          .radius(d => d.y));
+
+  // Append nodes.
+  svg.append("g")
+    .selectAll()
+    .data(root.descendants())
+    .join("circle")
+      .attr("transform", d => `rotate(${d.x * 180 / Math.PI - 90}) translate(${d.y},0)`)
+      .attr("fill", d => d.children ? "#555" : "#999")
+      .attr("r", 2.5);
+
+  // Append labels.
+  svg.append("g")
+      .attr("stroke-linejoin", "round")
+      .attr("stroke-width", 3)
+    .selectAll()
+    .data(root.descendants())
+    .join("text")
+      .attr("transform", d => `rotate(${d.x * 180 / Math.PI - 90}) translate(${d.y},0) rotate(${d.x >= Math.PI ? 180 : 0})`)
+      .attr("dy", "0.31em")
+      .attr("x", d => d.x < Math.PI === !d.children ? 6 : -6)
+      .attr("text-anchor", d => d.x < Math.PI === !d.children ? "start" : "end")
+      .attr("paint-order", "stroke")
+      .attr("stroke", "white")
+      .attr("fill", "currentColor")
+      .text(d => d.data.name);
+
+  return svg.node();}
+
+    async function renderPage() {
+        const data = await fetchData();
+        if (data) {
+            // Remove all SVG elements from the page
+            document.querySelectorAll("svg").forEach(svg => svg.remove());
+
+            // Add the new chart to the target container
+            document.getElementById("tree-chart").appendChild(renderTreeChart(data.tree_data));
+        }
+    }
+
+    setInterval(renderPage, 5000)
+  </script>
+</body>
+</html>

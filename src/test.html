@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Temporal Neural Network Graph</title>
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <style>
+    .node {
+      fill: steelblue;
+    }
+    .link {
+      stroke: gray;
+      stroke-width: 1.5px;
+    }
+  </style>
+</head>
+<body>
+  <div id="graph"></div>
+
+  <script>
+    // Sample data: an array of time steps, each with nodes and links for a neural network
+    const timeSteps = [
+      { 
+        nodes: [
+          { id: 'A', x: 50, y: 50 },
+          { id: 'B', x: 150, y: 50 },
+          { id: 'C', x: 100, y: 150 }
+        ],
+        links: [
+          { source: { id: 'A', x: 50, y: 50 }, target: { id: 'B', x: 150, y: 50 } },
+          { source: { id: 'B', x: 150, y: 50 }, target: { id: 'C', x: 100, y: 150 } }
+        ]
+      },
+      {
+        nodes: [
+          { id: 'A', x: 80, y: 80 },
+          { id: 'B', x: 180, y: 80 },
+          { id: 'C', x: 130, y: 180 }
+        ],
+        links: [
+          { source: { id: 'A', x: 80, y: 80 }, target: { id: 'B', x: 180, y: 80 } },
+          { source: { id: 'A', x: 80, y: 80 }, target: { id: 'C', x: 130, y: 180 } },
+          { source: { id: 'B', x: 180, y: 80 }, target: { id: 'C', x: 130, y: 180 } }
+        ]
+      },
+      // Add more time steps as needed
+    ];
+
+    const width = 400;
+    const height = 300;
+
+    // Create SVG canvas
+    const svg = d3.select("#graph")
+      .append("svg")
+      .attr("width", width)
+      .attr("height", height);
+
+    // Function to render a specific time step
+    function renderTimeStep(index) {
+      const timeStepData = timeSteps[index];
+
+      // Update nodes
+      const nodes = svg.selectAll(".node")
+        .data(timeStepData.nodes, d => d.id);
+
+      nodes.enter().append("circle")
+        .attr("class", "node")
+        .attr("r", 5)
+        .merge(nodes)
+        .transition()
+        .duration(500)
+        .attr("cx", d => d.x)
+        .attr("cy", d => d.y);
+
+      nodes.exit().remove();
+
+      // Update links
+      const links = svg.selectAll(".link")
+        .data(timeStepData.links, d => `${d.source.id}-${d.target.id}`);
+
+      links.enter().append("line")
+        .attr("class", "link")
+        .merge(links)
+        .transition()
+        .duration(500)
+        .attr("x1", d => d.source.x)
+        .attr("y1", d => d.source.y)
+        .attr("x2", d => d.target.x)
+        .attr("y2", d => d.target.y);
+
+      links.exit().remove();
+    }
+
+    // Initialize the graph with the first time step
+    let currentTimeStep = 0;
+    renderTimeStep(currentTimeStep);
+
+    // Auto-update the graph by cycling through time steps
+    setInterval(() => {
+      currentTimeStep = (currentTimeStep + 1) % timeSteps.length;
+      renderTimeStep(currentTimeStep);
+    }, 1000); // Adjust the interval as needed
+  </script>
+</body>
+</html>
